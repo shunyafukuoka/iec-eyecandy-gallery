@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>目が離せない映像ギャラリー</title>
+<style>
+  :root { --bg:#f4f6f9; --card:#fff; --text:#1d2433; --muted:#6b7385; --line:#dde2ea; --accent:#1f6fd1; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:"Hiragino Sans","Noto Sans JP",sans-serif; }
+  header { position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px;
+    padding:12px 20px; background:#fff; border-bottom:1px solid var(--line); }
+  h1 { margin:0; font-size:1.25rem; }
+  #sub { color:var(--muted); font-size:.85rem; }
+  #pause { margin-left:auto; font:inherit; font-size:.85rem; padding:6px 14px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
+  main { max-width:1400px; margin:0 auto; padding:20px 16px; display:grid; gap:20px; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .pair { display:grid; grid-template-columns:1fr 1fr; gap:2px; background:#222; }
+  .panel { position:relative; }
+  .panel canvas { display:block; width:100%; aspect-ratio:1; background:#0b0b12; }
+  .tag { position:absolute; top:6px; left:6px; padding:2px 8px; border-radius:4px; font-size:.75rem; color:#fff; background:rgba(0,0,0,.6); }
+  .body { padding:14px 16px 16px; }
+  .name { margin:0; font-size:1.1rem; font-weight:700; }
+  .memo { margin:4px 0 12px; color:var(--muted); font-size:.9rem; min-height:1.2em; }
+  .btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .btns a { display:block; padding:8px 4px; border-radius:6px; background:var(--accent); color:#fff; text-align:center; text-decoration:none; font-size:.85rem; }
+  #msg { grid-column:1/-1; color:var(--muted); text-align:center; padding:40px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>目が離せない映像ギャラリー</h1>
+  <span id="sub">読み込み中…</span>
+  <button id="pause">⏸ サムネイル停止</button>
+</header>
+<main id="grid"><p id="msg">読み込み中…</p></main>
+
+<script src="model.js"></script>
+<script>
+(function () {
+  // Googleフォームの回答シートを「ウェブに公開」→ CSV で出した URL。空ならサンプルを表示する
+  const SHEET_CSV_URL = '';
+  const RELOAD_SEC = 30;
+  const GENE_N = GENE_RANGES.length;
+
+  // ── CSV（引用符・改行入りのセルに対応）
+  function parseCSV(text) {
+    const rows = []; let row = [], cell = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += c;
+    }
+    if (cell || row.length) { row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(v => v.trim()));
+  }
+
+  // 遺伝子セルから数を拾う。[ ] や空白が混ざっていてもよい。数が合わなければ null
+  function parseGenome(s) {
+    const g = (s || '').match(/-?\d+(?:\.\d+)?(?:e-?\d+)?/gi);
+    return g && g.length === GENE_N ? g.map(Number) : null;
+  }
+
+  // 列は見出しの言葉で探す（フォームの質問順が変わっても動くように）
+  function toEntries(rows) {
+    const head = rows[0] || [];
+    const col = f => head.findIndex(f);
+    const iName = col(h => h.includes('名前'));
+    const iLike = col(h => h.includes('好き') && !h.includes('つい'));
+    const iWatch = col(h => h.includes('つい'));
+    const iMemo = col(h => /ひとこと|メモ|コメント/.test(h));
+    return rows.slice(1).map((r, n) => ({
+      key: r.join('|'),
+      name: (r[iName] || '').trim() || '名無し' + (n + 1),
+      memo: iMemo >= 0 ? (r[iMemo] || '').trim() : '',
+      like: parseGenome(r[iLike]),
+      watch: parseGenome(r[iWatch]),
+    })).filter(e => e.like || e.watch).reverse();   // 新しい投稿を先頭に
+  }
+
+  // ── 描画（見えているカードだけ動かす）
+  const panels = [];   // { canvas, ctx, genome, state, visible }
+  let paused = false, last = null;
+  const io = new IntersectionObserver(es => es.forEach(e => { e.target._p.visible = e.isIntersecting; }));
+
+  function makePanel(label, genome) {
+    const div = document.createElement('div'); div.className = 'panel';
+    const cv = document.createElement('canvas'); cv.width = cv.height = 320;
+    const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = label;
+    div.append(cv, tag);
+    if (genome) {
+      const p = { canvas: cv, ctx: cv.getContext('2d'), genome, state: initState(genome, 320, 320), visible: false };
+      cv._p = p; panels.push(p); io.observe(cv);
+      drawFrame(p.ctx, p.state, genome, 320, 320);
+    } else tag.textContent += '（未入力）';
+    return div;
+  }
+
+  function studioLink(text, genome) {
+    const a = document.createElement('a');
+    a.textContent = text;
+    if (genome) { a.href = 'studio.html#g=' + genome.join(','); a.target = '_blank'; }
+    else { a.style.opacity = .4; a.style.pointerEvents = 'none'; }
+    return a;
+  }
+
+  function makeCard(e) {
+    const card = document.createElement('article'); card.className = 'card';
+    const pair = document.createElement('div'); pair.className = 'pair';
+    pair.append(makePanel('好き', e.like), makePanel('つい見てしまう', e.watch));
+    const body = document.createElement('div'); body.className = 'body';
+    const name = document.createElement('p'); name.className = 'name'; name.textContent = e.name;
+    const memo = document.createElement('p'); memo.className = 'memo'; memo.textContent = e.memo;
+    const btns = document.createElement('div'); btns.className = 'btns';
+    btns.append(studioLink('▶ 好きを試す', e.like), studioLink('▶ つい見てしまうを試す', e.watch));
+    body.append(name, memo, btns);
+    card.append(pair, body);
+    return card;
+  }
+
+  function loop(ts) {
+    const dt = last === null ? 0 : Math.min(0.05, (ts - last) / 1000); last = ts;
+    if (!paused) for (const p of panels) {
+      if (!p.visible) continue;
+      try { stepState(p.state, dt, p.genome, 320, 320); drawFrame(p.ctx, p.state, p.genome, 320, 320); } catch (err) {}
+    }
+    requestAnimationFrame(loop);
+  }
+
+  // ── 読み込み（新しい行だけ足すので、表示中のアニメは途切れない）
+  const shown = new Set();
+  const grid = document.getElementById('grid'), sub = document.getElementById('sub');
+  async function load() {
+    const url = SHEET_CSV_URL ? SHEET_CSV_URL + (SHEET_CSV_URL.includes('?') ? '&' : '?') + 't=' + Date.now() : 'sample.csv';
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const entries = toEntries(parseCSV(await res.text()));
+      const fresh = entries.filter(e => !shown.has(e.key));
+      fresh.reverse().forEach(e => { shown.add(e.key); grid.prepend(makeCard(e)); });
+      const msg = document.getElementById('msg');
+      if (msg) msg.textContent = entries.length ? '' : 'まだ投稿がありません';
+      if (msg && entries.length) msg.remove();
+      sub.textContent = (SHEET_CSV_URL ? '' : '【サンプル表示】') + shown.size + ' 人分　／　' + RELOAD_SEC + '秒ごとに自動で更新　／　「▶ 試す」でその遺伝子から IEC Studio で育て直せます';
+    } catch (err) {
+      sub.textContent = '読み込みに失敗しました（' + err.message + '）。' + RELOAD_SEC + '秒後にもう一度試します';
+    }
+  }
+
+  document.getElementById('pause').addEventListener('click', ev => {
+    paused = !paused;
+    ev.target.textContent = paused ? '▶ サムネイル再生' : '⏸ サムネイル停止';
+  });
+  load(); setInterval(load, RELOAD_SEC * 1000);
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

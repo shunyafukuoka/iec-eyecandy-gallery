@@ -1,0 +1,3891 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IEC Studio v1.0 — 対話型進化計算スタジオ</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+html{font-size:13pt}            /* 既定で標準(12pt)より1ポイント大きい */
+.fs-ctrl{display:inline-flex;align-items:center;gap:4px;margin-right:4px}
+.fs-ctrl .fs-btn{padding:3px 7px}
+.fs-val{font-family:'IBM Plex Mono',monospace;font-size:.66rem;color:var(--muted);min-width:36px;text-align:center}
+
+
+:root {
+  --bg:      #f4f6f9;
+  --surface: #ffffff;
+  --panel:   #f0f2f6;
+  --border:  #d4d9e3;
+  --accent:  #0284c7;
+  --amber:   #b45309;
+  --good:    #047857;
+  --bad:     #dc2626;
+  --violet:  #6d28d9;
+  --green:   #15803d;
+  --text:    #1e293b;
+  --muted:   #64748b;
+  --code-bg: #f8fafc;
+  --glow-g:  0 0 0 2px rgba(21,128,61,.25), 0 0 10px rgba(21,128,61,.12);
+  --glow-h:  0 0 8px rgba(2,132,199,.15);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;
+     display:flex;flex-direction:column;overflow:hidden}
+
+/* ── Header ── */
+header{border-bottom:1px solid var(--border);padding:8px 18px;display:flex;
+       align-items:center;gap:12px;background:var(--surface);
+       flex-shrink:0;z-index:20;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+header h1{font-family:'Syne',sans-serif;font-size:1.05rem;letter-spacing:.06em;
+          color:var(--text);white-space:nowrap}
+header h1 em{color:var(--accent);font-style:normal}
+.tick-badge{font-family:'IBM Plex Mono',monospace;font-size:.75rem;padding:3px 9px;
+            border:1px solid var(--border);border-radius:4px;color:var(--accent);
+            background:rgba(2,132,199,.07);white-space:nowrap;min-width:86px;text-align:center}
+.run-badge{font-family:'IBM Plex Mono',monospace;font-size:.67rem;padding:2px 7px;
+           border-radius:3px;background:rgba(21,128,61,.10);border:1px solid rgba(21,128,61,.35);
+           color:var(--green);display:none;white-space:nowrap;animation:pulse 1.4s infinite}
+.run-badge.show{display:inline-block}
+.loop-badge{font-family:'IBM Plex Mono',monospace;font-size:.67rem;padding:2px 7px;
+            border-radius:3px;background:rgba(109,40,217,.09);border:1px solid rgba(109,40,217,.3);
+            color:var(--violet);display:none;white-space:nowrap}
+.loop-badge.show{display:inline-block}
+.stopped-badge{font-family:'IBM Plex Mono',monospace;font-size:.67rem;padding:2px 7px;
+               border-radius:3px;background:rgba(220,38,38,.09);border:1px solid rgba(220,38,38,.35);
+               color:var(--bad);display:none;white-space:nowrap}
+.stopped-badge.show{display:inline-block}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.spacer{flex:1}
+.hbtn{font-family:'IBM Plex Mono',monospace;font-size:.7rem;padding:3px 10px;border-radius:4px;
+      border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;
+      transition:all .13s;white-space:nowrap}
+.hbtn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── Workspace ── */
+.workspace{flex:1;display:flex;overflow:hidden;min-height:0}
+
+/* Left: canvas */
+.left-col{flex:0 0 auto;width:492px;display:flex;flex-direction:column;
+          background:var(--surface);border-right:1px solid var(--border);
+          padding:10px;gap:7px;overflow:hidden}
+.canvas-wrap{border:1.5px solid var(--border);border-radius:6px;overflow:hidden;
+             background:#060a10;transition:border-color .2s,box-shadow .2s;flex-shrink:0;
+             box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.canvas-wrap.running{border-color:rgba(21,128,61,.6);box-shadow:var(--glow-g)}
+#simCanvas{display:block}
+.ctrl-row{display:flex;gap:5px}
+.ctrl-btn{font-family:'IBM Plex Mono',monospace;font-size:.72rem;padding:5px 0;
+          border-radius:4px;border:1px solid var(--border);background:var(--surface);
+          color:var(--text);cursor:pointer;transition:all .13s;flex:1;text-align:center;white-space:nowrap}
+.ctrl-btn.recording{background:rgba(220,38,38,.12);border-color:#dc2626;color:#dc2626}
+.ctrl-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(2,132,199,.05)}
+.ctrl-btn.play-act{background:rgba(21,128,61,.08);border-color:var(--green);color:var(--green)}
+.ctrl-btn.play-act:hover{background:rgba(21,128,61,.14)}
+.ctrl-btn.pause-act{background:rgba(180,83,9,.08);border-color:var(--amber);color:var(--amber)}
+.ctrl-btn.pause-act:hover{background:rgba(180,83,9,.14)}
+.slider-row{display:flex;align-items:center;gap:7px}
+.slider-row label{font-family:'IBM Plex Mono',monospace;font-size:.67rem;color:var(--muted);
+                  width:104px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 生成されるパラメータ行：表示名とモデル側の変数名にそれぞれ固定幅の列を与え、行を揃えつつ
+   変数名が切り詰められないようにする。収まりきらない分は title= のホバーで確認できる。 */
+.slider-row label.param-label{width:132px;flex-shrink:0;display:block;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help}
+.slider-row .pvar{width:80px;flex-shrink:0;font-family:'IBM Plex Mono',monospace;font-size:.58rem;
+  opacity:.55;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:help}
+/* 画面が広いときにトラックが伸び切ってラベルを圧迫しないよう上限を設ける。 */
+.slider-row input[type=range]{flex:1 1 90px;max-width:240px;-webkit-appearance:none;height:3px;border-radius:2px;
+  background:var(--border);outline:none;cursor:pointer}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;
+  height:12px;border-radius:50%;background:var(--accent);cursor:pointer;
+  box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.speed-row input[type=range]{accent-color:var(--green)}
+.speed-row input[type=range]::-webkit-slider-thumb{background:var(--green)!important;
+  box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.slider-val{font-family:'IBM Plex Mono',monospace;font-size:.66rem;color:var(--accent);
+            width:46px;text-align:right;flex-shrink:0}
+.slider-row input.slider-num{flex:0 0 auto;width:58px;font-family:'IBM Plex Mono',monospace;
+            font-size:.66rem;color:var(--accent);background:var(--panel);border:1px solid var(--border);
+            border-radius:4px;padding:2px 4px;text-align:right;-webkit-appearance:auto;height:auto}
+.slider-row input.slider-num:focus{outline:none;border-color:var(--accent)}
+.slider-row .param-unit{font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);flex-shrink:0}
+.speed-val{font-family:'IBM Plex Mono',monospace;font-size:.66rem;color:var(--green);
+           width:46px;text-align:right;flex-shrink:0}
+
+/* Field image/video buttons */
+.field-actions{display:flex;gap:5px;align-items:center;flex-shrink:0}
+.field-btn{font-family:'IBM Plex Mono',monospace;font-size:.67rem;padding:4px 0;
+           border-radius:4px;border:1px solid var(--border);background:var(--panel);
+           color:var(--text);cursor:pointer;transition:all .13s;white-space:nowrap;
+           flex:1;text-align:center}
+.field-btn:hover{border-color:var(--accent);color:var(--accent)}
+.field-btn.recording{background:rgba(220,38,38,.1);border-color:var(--bad);color:var(--bad)}
+.rec-badge{font-family:'IBM Plex Mono',monospace;font-size:.66rem;padding:2px 7px;
+           border-radius:3px;background:rgba(220,38,38,.12);border:1px solid rgba(220,38,38,.4);
+           color:var(--bad);display:none;white-space:nowrap;animation:pulse 1s infinite;flex-shrink:0}
+.rec-badge.show{display:inline-block}
+
+/* Right col */
+.right-col{flex:1;display:flex;flex-direction:column;overflow-y:auto;
+           background:var(--bg);padding:10px 12px;gap:8px;min-width:0}
+.sep{width:100%;height:1px;background:var(--border);flex-shrink:0}
+.group-label{font-family:'IBM Plex Mono',monospace;font-size:.58rem;color:var(--muted);
+             letter-spacing:.09em;text-transform:uppercase;flex-shrink:0}
+.param-group{display:flex;flex-direction:column;gap:6px}
+.stats-box{background:var(--surface);border:1px solid var(--border);border-radius:4px;
+           padding:5px 9px;font-family:'IBM Plex Mono',monospace;font-size:.65rem;
+           color:var(--muted);line-height:1.9;word-break:break-all;flex-shrink:0}
+.stats-box .sv{color:var(--accent)}
+
+/* ── Setup selector ── */
+.setup-section{display:none;flex-direction:column;gap:5px;flex-shrink:0}
+.setup-section.show{display:flex}
+.setup-btns{display:flex;gap:5px;flex-wrap:wrap}
+.setup-btn{font-family:'IBM Plex Mono',monospace;font-size:.68rem;padding:4px 10px;
+           border-radius:4px;border:1px solid var(--border);background:var(--surface);
+           color:var(--text);cursor:pointer;transition:all .13s;white-space:nowrap}
+.setup-btn:hover{border-color:var(--accent);color:var(--accent)}
+.setup-btn.active{background:rgba(2,132,199,.09);border-color:var(--accent);color:var(--accent);font-weight:500}
+
+/* ── Stop condition ── */
+.stopcond-section{display:none;flex-direction:column;gap:5px;flex-shrink:0}
+.stopcond-section.show{display:flex}
+.stopcond-row{display:flex;align-items:center;gap:8px}
+.stopcond-label{font-family:'IBM Plex Mono',monospace;font-size:.68rem;color:var(--text);flex:1;
+                word-break:break-all;line-height:1.5}
+.stopcond-label.active{color:var(--bad);font-weight:500}
+.stopcond-code{font-family:'IBM Plex Mono',monospace;font-size:.63rem;color:#1e4070;
+               background:var(--code-bg);border:1px solid var(--border);border-radius:4px;
+               padding:4px 8px;line-height:1.6;display:none;word-break:break-all}
+.stopcond-code.show{display:block}
+
+/* toggle switch */
+.toggle-wrap{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.toggle{position:relative;width:34px;height:18px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:9px;
+               cursor:pointer;transition:background .2s}
+.toggle input:checked+.toggle-slider{background:var(--bad)}
+.toggle-slider::before{content:'';position:absolute;width:12px;height:12px;
+  left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;
+  box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.toggle input:checked+.toggle-slider::before{transform:translateX(16px)}
+
+/* ── Action buttons ── */
+.action-section{display:none;flex-direction:column;gap:5px;flex-shrink:0}
+.action-section.show{display:flex}
+.action-btns{display:flex;gap:5px;flex-wrap:wrap}
+.action-btn{font-family:'IBM Plex Mono',monospace;font-size:.7rem;padding:5px 12px;
+            border-radius:4px;border:1px solid var(--border);background:var(--surface);
+            color:var(--text);cursor:pointer;transition:all .13s;white-space:nowrap;font-weight:500}
+.action-btn:hover{filter:brightness(.93)}
+.action-btn:active{filter:brightness(.85)}
+
+/* Charts */
+.charts-section{display:none;flex-direction:column;gap:10px;flex-shrink:0}
+.charts-section.show{display:flex}
+.chart-block{display:flex;flex-direction:column;gap:4px}
+.chart-hdr{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-height:18px}
+.chart-title{font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);
+             letter-spacing:.07em;text-transform:uppercase}
+.legend{display:flex;gap:8px;flex-wrap:wrap;flex:1}
+.legend-item{display:flex;align-items:center;gap:3px;font-family:'IBM Plex Mono',monospace;
+             font-size:.58rem;color:var(--muted)}
+.legend-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.chart-canvas-wrap{border:1px solid var(--border);border-radius:5px;overflow:hidden;flex-shrink:0;
+                   box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.chart-canvas-wrap canvas{display:block}
+.chart-action-btn{font-family:'IBM Plex Mono',monospace;font-size:.57rem;padding:2px 6px;
+                  border-radius:3px;border:1px solid var(--border);background:var(--surface);
+                  color:var(--muted);cursor:pointer;transition:all .13s;white-space:nowrap;flex-shrink:0}
+.chart-action-btn:hover{border-color:var(--good);color:var(--good)}
+.chart-action-btn.done{border-color:var(--good);color:var(--good)}
+
+.toggle.loop input:checked+.toggle-slider{background:var(--violet)}
+
+/* ── Code bar ── */
+.code-bar{flex-shrink:0;border-top:1px solid var(--border);background:var(--surface);
+          display:flex;flex-direction:column;box-shadow:0 -1px 4px rgba(0,0,0,.05)}
+.code-bar-header{display:flex;align-items:center;gap:6px;padding:5px 12px;
+                 flex-wrap:wrap;flex-shrink:0}
+.code-toggle{font-family:'IBM Plex Mono',monospace;font-size:.68rem;padding:2px 8px;
+             border-radius:3px;border:1px solid var(--border);background:var(--panel);
+             color:var(--muted);cursor:pointer;transition:all .13s;white-space:nowrap}
+.code-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.code-toggle.open{border-color:rgba(2,132,199,.5);color:var(--accent);background:rgba(2,132,199,.06)}
+.cbtn{font-family:'IBM Plex Mono',monospace;font-size:.68rem;padding:3px 9px;border-radius:4px;
+      border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;
+      transition:all .12s;white-space:nowrap}
+.cbtn:hover{border-color:var(--accent);color:var(--accent)}
+.cbtn.primary{background:rgba(2,132,199,.09);border-color:var(--accent);color:var(--accent)}
+.cbtn.primary:hover{background:rgba(2,132,199,.16)}
+.cbtn.amber{background:rgba(180,83,9,.08);border-color:var(--amber);color:var(--amber)}
+.cbtn.green{background:rgba(21,128,61,.08);border-color:var(--green);color:var(--green)}
+.cbtn.violet{background:rgba(109,40,217,.08);border-color:var(--violet);color:var(--violet)}
+.ok-badge{font-family:'IBM Plex Mono',monospace;font-size:.66rem;color:var(--good);
+          opacity:0;transition:opacity .3s}
+.ok-badge.show{opacity:1}
+.code-body{display:none;flex-direction:column;gap:5px;padding:0 12px 8px;max-height:260px}
+.code-body.open{display:flex}
+.code-wrap{flex:1;border:1px solid var(--border);border-radius:5px;overflow:hidden;
+           background:var(--code-bg);min-height:140px}
+.code-wrap:focus-within{border-color:rgba(2,132,199,.5);box-shadow:0 0 0 2px rgba(2,132,199,.08)}
+textarea{width:100%;height:100%;min-height:140px;background:transparent;border:none;
+         outline:none;color:#1e4070;font-family:'IBM Plex Mono',monospace;font-size:.73rem;
+         line-height:1.6;padding:8px 11px;resize:none;tab-size:2}
+.error-box{font-family:'IBM Plex Mono',monospace;font-size:.67rem;color:var(--bad);
+           background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.25);
+           border-radius:3px;padding:4px 9px;display:none;line-height:1.5}
+.error-box.show{display:block}
+
+/* ════════ v6 additions ════════ */
+
+/* Param row: info icon + "needs setup" marker */
+.slider-row .pinfo{font-family:'IBM Plex Mono',monospace;font-size:.6rem;width:14px;height:14px;
+  flex-shrink:0;border:1px solid var(--border);border-radius:50%;color:var(--muted);
+  display:inline-flex;align-items:center;justify-content:center;cursor:help;line-height:1;
+  background:var(--surface);transition:all .13s;position:relative}
+.slider-row .pinfo:hover{border-color:var(--accent);color:var(--accent)}
+.slider-row .pinfo .tip{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);
+  width:200px;background:var(--text);color:#fff;font-size:.62rem;line-height:1.5;padding:6px 8px;
+  border-radius:5px;z-index:60;white-space:normal;text-align:left;box-shadow:0 3px 10px rgba(0,0,0,.25);
+  font-family:'Noto Sans JP',sans-serif;pointer-events:none}
+.slider-row .pinfo:hover .tip{display:block}
+.slider-row label.needs-setup{color:var(--violet);font-weight:500}
+.slider-row label.needs-setup::after{content:' ⟳';color:var(--violet);font-size:.7em}
+
+/* Settings (param behavior) */
+.settings-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-family:'IBM Plex Mono',monospace;
+  font-size:.62rem;color:var(--muted)}
+.settings-row .seg{display:inline-flex;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.settings-row .seg button{font-family:'IBM Plex Mono',monospace;font-size:.62rem;padding:3px 8px;border:none;
+  background:var(--surface);color:var(--muted);cursor:pointer;transition:all .12s;border-right:1px solid var(--border)}
+.settings-row .seg button:last-child{border-right:none}
+.settings-row .seg button.on{background:rgba(2,132,199,.1);color:var(--accent);font-weight:500}
+.reset-hint{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--violet);
+  background:rgba(109,40,217,.07);border:1px solid rgba(109,40,217,.3);border-radius:4px;
+  padding:4px 8px;display:none;align-items:center;gap:6px;flex-shrink:0}
+.reset-hint.show{display:flex}
+.reset-hint button{font-family:'IBM Plex Mono',monospace;font-size:.62rem;padding:2px 8px;border-radius:3px;
+  border:1px solid var(--violet);background:var(--surface);color:var(--violet);cursor:pointer}
+.reset-hint button:hover{background:rgba(109,40,217,.1)}
+
+/* Experiment snapshots / compare */
+.snap-section{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.snap-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.snap-btn{font-family:'IBM Plex Mono',monospace;font-size:.64rem;padding:4px 9px;border-radius:4px;
+  border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;transition:all .13s;white-space:nowrap}
+.snap-btn:hover{border-color:var(--good);color:var(--good)}
+.snap-btn.danger:hover{border-color:var(--bad);color:var(--bad)}
+.snap-list{display:flex;flex-direction:column;gap:4px}
+.snap-item{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);
+  border-radius:4px;padding:4px 8px;font-family:'IBM Plex Mono',monospace;font-size:.62rem}
+.snap-item .dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.snap-item .nm{color:var(--text);font-weight:500;flex-shrink:0}
+.snap-item .pm{color:var(--muted);flex:1;word-break:break-all;line-height:1.4}
+.snap-item .x{cursor:pointer;color:var(--muted);flex-shrink:0;padding:0 3px;border-radius:3px}
+.snap-item .x:hover{color:var(--bad);background:rgba(220,38,38,.08)}
+.snap-item.off{opacity:.45}
+.snap-item .eye{cursor:pointer;flex-shrink:0;font-size:.7rem}
+.snap-empty{font-family:'IBM Plex Mono',monospace;font-size:.62rem;color:var(--muted);
+  border:1px dashed var(--border);border-radius:4px;padding:6px 9px;line-height:1.5}
+
+/* small select (recording format etc) */
+.mini-sel{font-family:'IBM Plex Mono',monospace;font-size:.64rem;padding:3px 5px;border-radius:4px;
+  border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;flex-shrink:0}
+
+/* fps readout */
+.fps-badge{font-family:'IBM Plex Mono',monospace;font-size:.66rem;padding:3px 9px;
+  border:1px solid var(--border);border-radius:4px;color:var(--muted);
+  background:var(--panel);white-space:nowrap;min-width:64px;text-align:center}
+
+/* Code editor: line-number gutter */
+.code-wrap{display:flex}
+.code-gutter{flex-shrink:0;width:38px;padding:8px 6px 8px 0;text-align:right;background:rgba(0,0,0,.03);
+  color:#9aa5b8;font-family:'IBM Plex Mono',monospace;font-size:.73rem;line-height:1.6;
+  user-select:none;overflow:hidden;border-right:1px solid var(--border);white-space:pre}
+.error-box{cursor:default}
+.error-box .errline{display:block;margin-top:4px;color:#7a1d1d;background:rgba(220,38,38,.08);
+  border-radius:3px;padding:2px 6px;font-size:.63rem;white-space:pre-wrap;word-break:break-all}
+.error-box .errhint{display:block;margin-top:3px;color:var(--amber);font-size:.63rem}
+
+/* Help overlay */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:200;display:none;
+  align-items:center;justify-content:center;padding:24px}
+.overlay.show{display:flex}
+.overlay-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  max-width:720px;width:100%;max-height:84vh;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.overlay-card header{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--border);
+  padding:12px 18px;display:flex;align-items:center;gap:10px;z-index:2}
+.overlay-card header h2{font-family:'Syne',sans-serif;font-size:1rem;color:var(--text);letter-spacing:.03em}
+.overlay-card .ovbody{padding:6px 22px 22px}
+.overlay-card h3{font-family:'IBM Plex Mono',monospace;font-size:.74rem;color:var(--accent);
+  letter-spacing:.04em;margin:16px 0 6px;border-left:3px solid var(--accent);padding-left:8px}
+.overlay-card p,.overlay-card li{font-family:'Noto Sans JP',sans-serif;font-size:.78rem;color:var(--text);
+  line-height:1.7}
+.overlay-card ul{margin:4px 0 4px 18px}
+.overlay-card code{font-family:'IBM Plex Mono',monospace;font-size:.72rem;background:var(--code-bg);
+  border:1px solid var(--border);border-radius:3px;padding:1px 5px;color:#1e4070}
+.overlay-card .close-x{margin-left:auto;cursor:pointer;font-family:'IBM Plex Mono',monospace;
+  font-size:.8rem;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:3px 10px;background:var(--panel)}
+.overlay-card .close-x:hover{border-color:var(--bad);color:var(--bad)}
+.kbd{font-family:'IBM Plex Mono',monospace;font-size:.68rem;background:var(--panel);border:1px solid var(--border);
+  border-radius:3px;padding:1px 5px}
+
+/* Toast */
+.toast{position:fixed;bottom:12px;right:14px;background:var(--surface);
+       border:1px solid var(--good);border-radius:5px;padding:6px 12px;
+       font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--good);
+       opacity:0;transform:translateY(4px);transition:opacity .18s,transform .18s;
+       pointer-events:none;z-index:160;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.toast.bad{border-color:var(--bad);color:var(--bad)}
+.toast.show{opacity:1;transform:translateY(0)}
+/* ── 遺伝子パネル ── */
+.gene-section{display:none;flex-direction:column;gap:7px}
+.gene-section.show{display:flex}
+.gene-box{display:flex;flex-direction:column;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:.64rem}
+.gene-def{color:var(--muted);line-height:1.55;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:7px 9px}
+.gene-def b{color:var(--text)}
+.gene-def .pill{display:inline-block;padding:0 6px;margin-right:4px;border-radius:10px;border:1px solid var(--border);color:var(--text);background:var(--surface)}
+.gene-best{display:flex;flex-direction:column;gap:6px}
+.gene-seg{display:flex;align-items:center;gap:7px;flex-wrap:wrap;line-height:1.2}
+.gene-seg-label{min-width:72px;color:var(--muted);flex-shrink:0}
+.gene-bits{display:flex;gap:2px;flex-wrap:wrap}
+.bitcell{width:10px;height:14px;border-radius:2px;border:1px solid var(--border);background:transparent;transition:background .12s}
+.bitcell.on{background:var(--violet);border-color:var(--violet)}
+.gene-reals{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.realchip{position:relative;padding:1px 6px;border:1px solid var(--border);border-radius:4px;background:var(--panel);color:var(--text);overflow:hidden}
+.realchip .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--accent);opacity:.55}
+.gene-val{margin-left:auto;color:var(--accent);font-weight:500;white-space:nowrap}
+.gene-grid-wrap{display:flex;flex-direction:column;gap:3px;margin-top:5px}
+.gene-grid-label{font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted)}
+.gene-grid{display:grid;gap:2px;max-width:190px}
+.gene-grid .gc{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;
+  font-size:.54rem;border:1px solid var(--border);border-radius:2px;min-height:17px;line-height:1}
+.gene-legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:3px}
+.gene-legend .lg{display:flex;align-items:center;gap:3px;font-family:'IBM Plex Mono',monospace;font-size:.55rem;color:var(--muted)}
+.gene-legend .sw{width:11px;height:11px;border:1px solid var(--border);border-radius:2px;flex-shrink:0}
+
+
+
+/* ════════ IEC-specific components ════════ */
+
+/* candidate grid (the "canvas" of IEC) */
+.iec-hint{font-size:.72rem;color:var(--muted);text-align:center;line-height:1.55;min-height:2.0em;flex-shrink:0}
+.iec-hint .hl-a{color:var(--accent);font-weight:600}
+.iec-hint .hl-b{color:var(--amber);font-weight:600}
+.iec-grid{display:grid;grid-template-columns:repeat(3,var(--cell,150px));grid-template-rows:repeat(3,var(--cell,150px));gap:7px;flex-shrink:0;align-self:center}
+.cell{position:relative;border:1.5px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer;
+      background:#0b1020;transition:box-shadow .13s,transform .1s,border-color .13s;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.cell canvas{display:block;width:var(--cell,150px);height:var(--cell,150px)}
+.cell:hover{border-color:var(--accent);box-shadow:var(--glow-h);transform:scale(1.02);z-index:2}
+.cell .badge{position:absolute;top:4px;left:5px;z-index:4;font-family:'IBM Plex Mono',monospace;
+             font-size:.6rem;font-weight:600;padding:1px 6px;border-radius:3px;pointer-events:none;opacity:0}
+.cell .star{position:absolute;top:3px;right:6px;z-index:4;font-size:.64rem;color:var(--amber);pointer-events:none;opacity:0}
+.cell.show-star .star{opacity:.9}
+.cell.parent-a{border-color:var(--accent)!important;box-shadow:0 0 0 2px rgba(2,132,199,.45),0 0 12px rgba(2,132,199,.3)!important}
+.cell.parent-a .badge{opacity:1;background:var(--accent);color:#fff}
+.cell.parent-b{border-color:var(--amber)!important;box-shadow:0 0 0 2px rgba(180,83,9,.45),0 0 12px rgba(180,83,9,.3)!important}
+.cell.parent-b .badge{opacity:1;background:var(--amber);color:#fff}
+.cell .copy-btn{position:absolute;bottom:5px;right:5px;z-index:5;font-size:.62rem;padding:2px 7px;border-radius:3px;
+                background:rgba(255,255,255,.92);border:1px solid var(--border);color:var(--accent);cursor:pointer;
+                opacity:0;pointer-events:none;transition:opacity .12s;font-family:'IBM Plex Mono',monospace;
+                box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.cell:hover .copy-btn{opacity:1;pointer-events:auto}
+.cell .copy-btn:hover{border-color:var(--accent);background:#fff}
+.cell .zoom-btn{left:5px;right:auto}
+.cell .play-btn{top:5px;bottom:auto;left:5px;right:auto;color:var(--accent)}
+.zoom-card{max-width:560px;width:auto}
+.zoom-body{padding:16px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:14px}
+#zoomCanvas{width:min(72vw,460px);height:min(72vw,460px);background:#0b1020;border:1px solid var(--border);border-radius:8px;display:block}
+.zoom-ctrl{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
+.zoom-anim{display:flex;align-items:center;gap:12px}
+.zoom-spd{display:inline-flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:.66rem;color:var(--muted)}
+.zoom-spd input[type=range]{width:120px;accent-color:var(--green)}
+.zoom-spd #zoomSpeedVal{color:var(--green);width:46px}
+@keyframes flash-a{0%{box-shadow:0 0 0 0 rgba(2,132,199,0)}45%{box-shadow:0 0 22px 6px rgba(2,132,199,.5)}100%{box-shadow:0 0 0 2px rgba(2,132,199,.45)}}
+@keyframes flash-b{0%{box-shadow:0 0 0 0 rgba(180,83,9,0)}45%{box-shadow:0 0 22px 6px rgba(180,83,9,.5)}100%{box-shadow:0 0 0 2px rgba(180,83,9,.45)}}
+.cell.flash-a{animation:flash-a .38s ease forwards}
+.cell.flash-b{animation:flash-b .38s ease forwards}
+
+/* mode + crossover selectors */
+.mode-row{display:flex;gap:6px}
+.mode-btn{flex:1;font-family:'IBM Plex Mono',monospace;font-size:.72rem;padding:6px 4px;border-radius:5px;
+          border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;
+          transition:all .13s;text-align:center;line-height:1.45}
+.mode-btn:hover{border-color:var(--accent);color:var(--text)}
+.mode-btn.active{background:rgba(2,132,199,.09);border-color:var(--accent);color:var(--accent);font-weight:500}
+.cx-row{display:flex;align-items:center;gap:7px;font-size:.67rem;color:var(--muted);transition:opacity .2s}
+.cx-row label{white-space:nowrap}
+.cx-row select{font-family:'IBM Plex Mono',monospace;font-size:.67rem;background:var(--panel);color:var(--text);
+               border:1px solid var(--border);border-radius:4px;padding:3px 6px;cursor:pointer;outline:none;flex:1}
+.cx-row select:hover{border-color:var(--accent)}
+
+/* animation controls */
+.anim-ctrl{display:none;flex-direction:column;gap:7px}
+.anim-ctrl.show{display:flex}
+.pause-btn{font-family:'IBM Plex Mono',monospace;font-size:.7rem;padding:4px 11px;border-radius:4px;
+           border:1px solid var(--green);background:rgba(21,128,61,.08);color:var(--green);cursor:pointer;
+           transition:all .13s;align-self:flex-start}
+.pause-btn:hover{background:rgba(21,128,61,.16)}
+.pause-btn.paused{background:rgba(180,83,9,.1);border-color:var(--amber);color:var(--amber)}
+.anim-speed-row input[type=range]{accent-color:var(--green)}
+.anim-speed-row input[type=range]::-webkit-slider-thumb{background:var(--green)!important}
+.anim-speed-val{font-family:'IBM Plex Mono',monospace;font-size:.66rem;color:var(--green);width:46px;text-align:right;flex-shrink:0}
+
+/* genome editor (advanced copy/import) */
+.genome-editor{display:flex;flex-direction:column;gap:6px}
+.ge-hdr{display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:var(--muted);
+        letter-spacing:.08em;text-transform:uppercase;cursor:pointer;user-select:none}
+.ge-hdr .arrow{transition:transform .14s;font-size:.7rem}
+.ge-hdr .ge-tag{color:var(--violet);font-size:.56rem;margin-left:2px;text-transform:none;letter-spacing:0}
+.ge-body{display:none;flex-direction:column;gap:6px}
+.ge-body.open{display:flex}
+.genome-ta{width:100%;min-height:54px;max-height:120px;background:var(--code-bg);border:1px solid var(--border);
+           border-radius:5px;color:#1e4070;font-family:'IBM Plex Mono',monospace;font-size:.7rem;line-height:1.5;
+           padding:6px 9px;resize:vertical;outline:none}
+.genome-ta:focus{border-color:rgba(2,132,199,.5)}
+.genome-ta::placeholder{color:var(--muted);font-size:.66rem}
+.ge-btn-row{display:flex;gap:6px}
+.ge-btn-row .cbtn{flex:1;text-align:center;font-size:.66rem}
+
+.lineage-strip{display:flex;gap:5px;overflow-x:auto;padding:6px 2px;margin-top:6px;align-items:center}
+.lineage-item{flex:0 0 auto;text-align:center;cursor:pointer}
+.lineage-item canvas{display:block;border:1px solid var(--border);border-radius:4px;background:#fff}
+.lineage-item:hover canvas{border-color:var(--accent)}
+.lineage-item.cur canvas{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.lineage-item .lg-lbl{font-family:'IBM Plex Mono',monospace;font-size:.55rem;color:var(--muted);margin-top:2px}
+.lineage-arrow{flex:0 0 auto;color:var(--muted);font-size:.7rem}
+.lineage-strip{flex-direction:column;align-items:stretch}
+.lineage-row{display:flex;gap:5px;align-items:center;padding:2px 0}
+.lineage-row.past-row{opacity:.45}
+.lineage-row.past-row:hover{opacity:.8}
+.lg-tag{flex:0 0 auto;font-family:'IBM Plex Mono',monospace;font-size:.5rem;color:var(--muted);padding:1px 4px;border:1px solid var(--border);border-radius:3px;margin-right:2px}
+.lineage-item.pending canvas{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.desc-box{font-size:.66rem;line-height:1.5;color:var(--text);background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px 10px;margin-bottom:4px}
+.desc-box .desc-sum{color:var(--accent);font-weight:500;margin-bottom:5px}
+.desc-box .desc-row{margin:3px 0;display:flex;gap:6px}
+.desc-box .desc-k{flex:0 0 3.4em;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:.6rem;padding-top:1px}
+.desc-box .desc-v{flex:1}
+.desc-box.empty{display:none}
+
+/* ══════════════════════════════════════════════════════════════
+   全画面9個体選択モード
+   ══════════════════════════════════════════════════════════════ */
+.gridfs-overlay{position:fixed;inset:0;background:var(--bg);z-index:150;display:none;flex-direction:column}
+.gridfs-overlay.show{display:flex}
+.gridfs-bar{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:1px solid var(--border);
+            background:var(--surface);flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.gridfs-bar .iec-hint{flex:0 1 auto;text-align:left;min-height:0}
+.gridfs-bar .spacer{flex:1}
+.gridfs-body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:16px}
+.iec-grid.fs{grid-template-columns:repeat(3,1fr)!important;grid-template-rows:repeat(3,1fr)!important;
+             width:min(92vw,92vh);height:min(92vw,92vh);gap:1.6vmin;align-self:center}
+.iec-grid.fs .cell{width:100%;height:100%;border-width:2.5px}
+.iec-grid.fs .cell canvas{width:100%;height:100%}
+.iec-grid.fs .cell .badge{font-size:1rem;padding:4px 12px;top:10px;left:12px}
+.iec-grid.fs .cell .star{font-size:1.6rem;top:8px;right:12px}
+.iec-grid.fs .cell .copy-btn{font-size:.82rem;padding:6px 14px;bottom:10px;right:10px}
+.iec-grid.fs .cell .zoom-btn{left:10px;right:auto}
+.iec-grid.fs .cell .play-btn{top:10px;left:10px;bottom:auto;right:auto}
+
+/* ══════════════════════════════════════════════════════════════
+   レスポンシブ（タブレット／スマホ）
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width:900px){
+  html{font-size:12pt}
+  body{overflow-y:auto;overflow-x:hidden;height:auto;min-height:100%}
+  header{flex-wrap:wrap;row-gap:6px;padding:8px 10px}
+  header h1{font-size:.92rem}
+  .tick-badge,.fps-badge,.run-badge,.loop-badge,.stopped-badge{font-size:.64rem}
+  .workspace{flex-direction:column;overflow:visible;height:auto;min-height:0}
+  .left-col{width:100%!important;flex:0 0 auto;border-right:none;border-bottom:1px solid var(--border);
+    overflow:visible;padding:9px;align-items:stretch}
+  .iec-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,auto);
+    width:100%;max-width:450px;margin:0 auto}
+  .cell{aspect-ratio:1/1}
+  .cell canvas{width:100%;height:100%}
+  .field-actions{flex-wrap:wrap}
+  .right-col{width:100%;overflow:visible;padding:9px 10px}
+  .setup-btns,.action-btns{flex-wrap:wrap}
+  .code-bar-header{padding:6px 8px}
+  .code-body{max-height:none}
+  /* スマホでは高さが確定せず約140px（≒7行）に潰れ、行番号だけ伸びて下が空白になる。
+     確定した高さを与え、行番号・テキストとも内部スクロール（scroll同期済み）させる。 */
+  .code-wrap{flex:0 0 auto;height:52vh;min-height:0}
+  #codeArea{min-height:0}
+  #modelSelect{max-width:100%;flex:1 1 100%}
+  .overlay{padding:10px}
+  .overlay-card{max-height:92vh}
+  .chart-hdr{row-gap:4px}
+}
+@media (max-width:480px){
+  html{font-size:11pt}
+  header h1{font-size:.82rem}
+  header h1 span{display:none}
+  .fs-ctrl,.fps-badge{display:none}
+  .slider-row label{width:74px}
+  .slider-row label.param-label{width:92px}
+  .slider-row .pvar{display:none}
+  .slider-row input[type=range]{max-width:none}
+  .ctrl-btn{font-size:.66rem}
+  .cbtn,.code-toggle{padding:3px 7px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><em>IEC</em> Studio <span style="font-size:.65em;font-weight:400;opacity:.6">v1.0</span></h1>
+  <div class="tick-badge" id="genBadge">世代: 0</div>
+  <div class="run-badge" id="animBadge">● アニメ</div>
+  <div class="spacer"></div>
+    <div class="fs-ctrl" title="文字の大きさ（A− / A＋）">
+    <button class="hbtn fs-btn" onclick="adjustFont(-1)">A−</button>
+    <span class="fs-val" id="fsVal">15pt</span>
+    <button class="hbtn fs-btn" onclick="adjustFont(1)">A＋</button>
+  </div>
+    <button class="hbtn" id="soundBtn" onclick="toggleSound()" title="音：オン（クリックで消音）">🔊</button>
+  <button class="hbtn" onclick="toggleGridFullscreen()" title="9個体を全画面表示して選択（プロジェクタ投影向け）">⛶ 全画面</button>
+  <button class="hbtn" onclick="openHelp()">❔ ヘルプ</button>
+</header>
+
+<div class="workspace">
+
+  <!-- Left: candidate grid + selection controls -->
+  <div class="left-col">
+    <div class="iec-hint" id="hint">気に入った個体をクリックして次世代を生成</div>
+    <div class="iec-grid" id="grid"></div>
+    <div class="ctrl-row" style="margin-bottom:8px;align-items:center">
+      <button class="ctrl-btn" onclick="resetEvolution()">⟳ 初期化</button>
+      <button class="ctrl-btn" id="gridRecBtn" onclick="toggleGridRecording()" title="9個体の様子を動画として録画します（アニメーションするモデルは動きごと記録されます）">⏺ 録画</button>
+      <select class="mini-sel" id="recFmtSel" title="録画の出力形式" style="flex:0 0 auto">
+        <option value="auto">形式:自動</option>
+        <option value="mp4">MP4</option>
+        <option value="webm">WebM</option>
+      </select>
+      <select class="mini-sel" id="thumbSizeSel" onchange="setThumbSize(this.value)" title="個体サムネイルの表示サイズ" style="margin-left:auto;flex:0 0 auto">
+        <option value="150">サイズ:標準</option>
+        <option value="200">サイズ:大</option>
+        <option value="250">サイズ:特大</option>
+      </select>
+    </div>
+    <div class="mode-row">
+      <button class="mode-btn active" id="btn1p" onclick="setMode('mutation')">
+        1親 ─ 変異のみ
+      </button>
+      <button class="mode-btn" id="btn2p" onclick="setMode('crossover')">
+        2親 ─ 交叉＋変異
+      </button>
+    </div>
+    <div class="cx-row" id="cxRow" style="opacity:.4;pointer-events:none">
+      <label>交叉方式</label>
+      <select id="cxType">
+        <option value="uniform">一様交叉</option>
+        <option value="onepoint">一点交叉</option>
+        <option value="twopoint">二点交叉</option>
+      </select>
+    </div>
+    <div class="lineage-ctrl" style="margin-top:8px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label style="display:inline-flex;align-items:center;gap:6px;font-family:'IBM Plex Mono',monospace;font-size:.66rem;color:var(--muted);cursor:pointer" title="各世代で選んだ親（中央個体）の履歴を表示。クリックでその祖先から育種をやり直せます。">
+          <input type="checkbox" id="lineageToggle" onchange="toggleLineage()" style="accent-color:var(--accent)"> 系統を表示（選んだ親の履歴）
+        </label>
+        <button class="cbtn" onclick="downloadDataZip()" title="初期化以降のデータ（選んだ親の系統・現在の9個体・パラメータ）を CSV と JSON にまとめて ZIP でダウンロード">📦 データ一式DL</button>
+      </div>
+      <div id="lineageStrip" class="lineage-strip" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Right: params + animation + genome + stats -->
+  <div class="right-col">
+
+    <div class="group-label">このモデルの説明</div>
+    <div class="desc-box" id="descBox"></div>
+
+    <div class="group-label">演算パラメータ</div>
+    <div class="param-group" id="paramGroup"></div>
+
+    <div class="sep"></div>
+
+    <!-- Animation controls (ANIMATED=true 時のみ表示) -->
+    <div class="anim-ctrl" id="animCtrl">
+      <div class="group-label" style="color:var(--green)">アニメーション</div>
+      <button class="pause-btn" id="pauseBtn" onclick="togglePause()">⏸ 停止</button>
+      <div class="slider-row anim-speed-row">
+        <label>速度</label>
+        <input type="range" id="animSpeedSlider" min="0.05" max="8" step="0.05" value="1.0" oninput="updateAnimSpeed()">
+        <span class="anim-speed-val" id="animSpeedVal">1.0×</span>
+      </div>
+      <div class="sep"></div>
+    </div>
+
+    <!-- Genome: definition + current centre individual -->
+    <div class="group-label">遺伝子（定義と中央個体）</div>
+    <div class="gene-box" id="geneBox"></div>
+
+    <!-- Advanced genome editor -->
+    <div class="genome-editor">
+      <div class="ge-hdr" id="geHdr" onclick="toggleGE()">
+        <span class="arrow" id="geArrow">▶</span>
+        <span>遺伝子エディタ</span>
+        <span class="ge-tag">コピー / 取込 / 編集</span>
+      </div>
+      <div class="ge-body" id="geBody">
+        <textarea class="genome-ta" id="genomeTa"
+          placeholder="各セルの「📋 遺伝子」で読込、または JSON 配列を直接入力&#10;例: [8.2, 14.3, 45.0, 0.7, ...]"></textarea>
+        <div class="ge-btn-row">
+          <button class="cbtn violet" onclick="importGenome(false)" title="中央セルに配置">↓ 中央に配置</button>
+          <button class="cbtn violet" onclick="importGenome(true)"  title="親として全セルに展開">⊕ 全体に展開</button>
+          <button class="cbtn" onclick="clearGE()">✕</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="group-label">状態</div>
+    <div class="stats-box" id="statsBox"><span class="sv">—</span></div>
+
+  </div>
+</div>
+
+<!-- Code bar -->
+<div class="code-bar">
+  <div class="code-bar-header">
+    <button class="code-toggle" id="codeToggle" onclick="toggleCode()">▸ コード</button>
+    <button class="cbtn primary" onclick="applyCode()">▶ 適用</button>
+    <button class="cbtn green"   onclick="pasteAndApply()" title="生成AIからコピーしたコードでコード欄を置き換えて適用">📥 貼り付けて適用</button>
+    <button class="cbtn"         onclick="copyCurrentCode()" title="現在のコード欄の内容をクリップボードにコピー">📋 コードをコピー</button>
+    <button class="cbtn amber"   onclick="copySpec()">📋 仕様書コピー</button>
+    <button class="cbtn"         onclick="copyNewModelPrompt()">✨ 新規作成プロンプト</button>
+    <button class="cbtn"         onclick="copyModPrompt()">✏️ 改変プロンプト</button>
+    <button class="cbtn"         onclick="copyExplainPrompt()" title="現在のコードがどんなモデルかを説明させるプロンプトをコピー">📖 説明プロンプト</button>
+    <button class="cbtn"         onclick="savePromptFile()" title="直前にコピーしたプロンプトを .txt で保存します。生成AIに貼り付けると途中で切れる場合は、これを添付してください">📄 プロンプト保存</button>
+    <button class="cbtn violet"  onclick="openAI()" title="OpenAI互換API（LM Studio等）で生成・改変">🤖 AI生成</button>
+    <button class="cbtn green"   onclick="saveModelFile()" title="現在のコードを .js ファイルとして保存">💾 .js保存</button>
+    <button class="cbtn"         onclick="document.getElementById('modelFileInput').click()" title="保存した .js / .txt を読み込む">📂 開く</button>
+    <button class="cbtn amber"   onclick="exportStandaloneHTML()" title="今動かしているモデルだけを実行できる、独立したHTMLファイルを書き出します（コード編集・AI生成UIなし）">💾 HTML出力</button>
+    <input type="file" id="modelFileInput" accept=".js,.txt,.text" style="display:none" onchange="loadModelFile(event)">
+    <select id="modelSelect" onchange="loadFromSelect(this.value)" style="font-family:'IBM Plex Mono',monospace;font-size:.68rem;padding:3px 6px;border-radius:4px;border:1px solid var(--border);background:var(--panel);color:var(--text);cursor:pointer;max-width:240px">
+      <option value="">── モデルを選択 ──</option>
+      <optgroup label="対話型進化計算（IEC）">
+        <option value="eyecandy">目が離せない映像（アニメーション）</option>
+        <option value="static">枝分かれ図形（9遺伝子・静止）</option>
+        <option value="flock">群れ（フロッキング・アニメーション）</option>
+        <option value="face">顔の進化（静止・美的選択）</option>
+        <option value="stained">ステンドグラス（静止・ボロノイ）</option>
+        <option value="mathart">数式アート（静止・z=f(x,y)）</option>
+        <option value="softbody">仮想生物（ソフトボディ・ボクセル）</option>
+        <option value="sound">音の進化（メロディ・▶で再生）</option>
+      </optgroup>
+    </select>
+    <span class="ok-badge" id="okBadge">✓ 適用しました</span>
+  </div>
+  <div class="code-body" id="codeBody">
+    <div class="code-wrap">
+      <div class="code-gutter" id="codeGutter">1</div>
+      <textarea id="codeArea" spellcheck="false"></textarea>
+    </div>
+    <div class="error-box" id="errorBox"></div>
+  </div>
+</div>
+
+<!-- Help overlay -->
+<div class="overlay" id="zoomOverlay" onclick="if(event.target===this)closeZoom()">
+  <div class="overlay-card zoom-card">
+    <header>
+      <h2 id="zoomTitle">個体の拡大表示</h2>
+      <span class="close-x" onclick="closeZoom()">✕ 閉じる</span>
+    </header>
+    <div class="zoom-body">
+      <canvas id="zoomCanvas" width="460" height="460"></canvas>
+      <div class="zoom-ctrl">
+        <div class="zoom-anim" id="zoomCtrlAnim">
+          <button class="ctrl-btn" id="zoomPlayBtn" onclick="toggleZoomPlay()">⏸ 停止</button>
+          <label class="zoom-spd">速度
+            <input type="range" id="zoomSpeed" min="0.05" max="8" step="0.05" value="1.0" oninput="updateZoomSpeed()">
+            <span id="zoomSpeedVal">1.0×</span>
+          </label>
+        </div>
+        <button class="cbtn" id="zoomPlaySound" onclick="zoomPlaySound()" style="display:none">▶ 鳴らす</button>
+        <button class="cbtn primary" onclick="selectFromZoom()">🧬 この個体から次世代</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 全画面9個体選択モード -->
+<div class="gridfs-overlay" id="gridFsOverlay">
+  <div class="gridfs-bar" id="gridFsBar">
+    <div class="spacer"></div>
+    <button class="hbtn" onclick="resetEvolution()">⟳ 初期化</button>
+    <button class="hbtn" onclick="toggleGridFullscreen()">✕ 全画面終了</button>
+  </div>
+  <div class="gridfs-body" id="gridFsBody"></div>
+</div>
+
+<div class="overlay" id="helpOverlay" onclick="if(event.target===this)closeHelp()">
+  <div class="overlay-card">
+    <header>
+      <h2>IEC Studio v1.0 — つかいかた</h2>
+      <span class="close-x" onclick="closeHelp()">✕ 閉じる</span>
+    </header>
+    <div class="ovbody">
+      <p>IEC Studio は <b>対話型進化計算（Interactive Evolutionary Computation）</b> のツールです。3×3 の9個体の中から「いいな」と思うものを<b>あなたが選ぶ</b>と、それを親にして次の世代9個体が作られます。評価関数を式で書くのではなく、<b>人間の好み</b>が選択圧になります。</p>
+
+      <h3>2つの選び方（モード）</h3>
+      <ul>
+        <li><b>1親 ─ 変異のみ</b>：気に入った個体を1つクリックすると、それを親に少しずつ変えた9個体が生まれます（中央 ★ は親そのまま）。</li>
+        <li><b>2親 ─ 交叉＋変異</b>：親 A・親 B の2個体を順にクリックすると、両者を<b>交叉</b>して混ぜた子が生まれます。交叉方式（一様／一点／二点）は左下で選べます。</li>
+      </ul>
+
+      <h3>基本操作</h3>
+      <ul>
+        <li><b>個体をクリック</b>：次世代を生成。<b>⟳ 初期化</b>：ランダムな初期個体群に戻します。</li>
+        <li><b>🔍 拡大</b>（各セルにマウスを乗せると左下に表示）：その個体を<b>大きく</b>表示します。アニメのモデルは拡大画面で動き、速度や一時停止も調整可能。気に入ったら「この個体から次世代」で選べます。</li>
+        <li><b>系統を表示</b>（グリッド下のチェック）：各世代で選んだ親の<b>履歴</b>を左→右に並べて見せます。サムネイルを<b>クリックするとその祖先から育種をやり直せ</b>（いまの系統は消えず、次に選んだ時点から新しい系統として記録されます）、枝分かれを試せます。</li>
+        <li>各セルにマウスを乗せると <b>📋 遺伝子</b> が出ます。押すとその個体の遺伝子を右の「遺伝子エディタ」に読み込み＆コピーします。</li>
+        <li><b>演算パラメータ</b>：変異率・変異幅などのスライダー（次に生成する世代から反映）。ⓘ で説明が出ます。</li>
+        <li><b>⛶ 全画面</b>（ヘッダー）：9個体のグリッドを画面いっぱいに拡大表示します。プロジェクタに投影して教室全体で候補を見ながら選ぶのに便利です。クリックによる選択・世代の生成はそのまま使えます。表示中は世代表示と <b>⟳ 初期化</b>・<b>✕ 全画面終了</b> だけの最小限の画面になります（モード切替や交叉方式などは通常表示に戻ってから変更してください）。<kbd>Esc</kbd> キーでも終了できます。</li>
+      </ul>
+
+      <h3>遺伝子（定義と中央個体）</h3>
+      <ul>
+        <li>右側に、いま使われている遺伝子の<b>定義</b>（数値配列の長さ・各遺伝子の範囲 GENE_RANGES）と、<b>中央個体（★）の遺伝子そのもの</b>がチップで表示されます。</li>
+        <li>「遺伝子エディタ」では JSON 配列を直接編集して <b>中央に配置</b> / <b>全体に展開</b> できます。気に入った個体を保存・再現するのに使えます。</li>
+      </ul>
+
+      <h3>アニメーション個体</h3>
+      <p>コードに <code>const ANIMATED = true</code> を加え、<code>initState</code> / <code>stepState</code> / <code>drawFrame</code> を定義すると、各セルが動きます（例：群れ）。右の<b>アニメーション</b>で再生／停止・速度を調整できます。</p>
+
+      <div id="helpCodeSection">
+      <h3>コードの書き方（ABM / EVO Studio と共通の作法）</h3>
+      <p>下の<b>コード</b>欄でモデルを定義します。必須は <code>createInitialGenome()</code> / <code>mutateGenome(genome, params)</code> / <code>drawPhenotype(ctx, genome, W, H)</code> の3つ（アニメ時は draw の代わりに上記3つ）。<code>GENE_RANGES</code> と <code>PARAM_DEFS</code> は任意です。コードは <code>new Function()</code> で評価され、<code>class</code> / <code>document.*</code> / <code>window.*</code> / <code>fetch</code> / <code>setTimeout</code> / <code>import</code> 等は<b>使えません</b>（使うと行番号つきでエラー表示）。改変を AI に頼むときは <b>✏️ 改変プロンプト</b> / <b>✨ 新規作成プロンプト</b> を使ってください。<b>💾 .js保存</b> / <b>📂 開く</b> でモデルを保存・読み込みできます。<b>💾 HTML出力</b> を使うと、今動かしているモデルだけをそのまま実行できる独立した HTML ファイル（コード編集・AI生成 UI なし）を書き出せます。配布や授業での配布物に便利です。</p>
+      <p>📄 <b>プロンプト保存</b>：直前にコピーしたプロンプトを <code>.txt</code> ファイルとして保存します。生成AIの入力欄に貼り付けると長文が途中で切れてしまう場合（環境によって起こります）は、コピーの代わりにこのファイルを<b>添付</b>して渡してください。全文が確実に届きます。</p>
+      </div>
+      <p>🔊 <b>音</b>：ヘッダの 🔊 でオン/オフ。<code>Sound.beep(...)</code> / <code>Sound.note(...)</code> で発音できます。<code>playSound(genome)</code> を定義したモデル（例：<b>音の進化</b>）では各候補に <b>▶ 鳴らす</b> が出て，聴いてから選べます。</p>
+    </div>
+  </div>
+</div>
+
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// 仕様書テキスト
+// ══════════════════════════════════════════════════════════════
+const SPEC_TEXT = `
+【対話型進化計算アプリ — 遺伝子・表現型 記述仕様 v4】
+
+このアプリは 3×3 グリッドの9個体からクリックで選択して次世代を生成する
+対話型進化計算システムです（1親変異 / 2親交叉＋変異を切り替え可能）．
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 静止モード（デフォルト）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+必須関数（3つ）:
+
+1. createInitialGenome()
+   戻り値: ランダムな遺伝子の数値配列
+
+2. mutateGenome(genome, params = {})
+   引数: genome（数値配列）, params（スライダー値オブジェクト）
+   戻り値: 変異後の新しい数値配列（元の genome は変更しない）
+   例:
+     function mutateGenome(genome, params = {}) {
+       const rate  = params.mutRate  ?? 0.38;
+       const scale = params.mutScale ?? 1.3;
+       return genome.map((g, i) => {
+         if (Math.random() < rate) {
+           const [mn, mx] = GENE_RANGES[i];
+           const delta = (mx - mn) * (Math.random() * 0.18 - 0.09) * scale;
+           return Math.min(mx, Math.max(mn, g + delta));
+         }
+         return g;
+       });
+     }
+
+3. drawPhenotype(ctx, genome, W, H)
+   ctx: Canvas 2D コンテキスト, W=H=150px
+   先頭で ctx.clearRect(0,0,W,H) を呼ぶこと
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ アニメーションモード（const ANIMATED = true を追加）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const ANIMATED = true;  // ← これを追加すると下記3関数が使われる
+
+必須関数（drawPhenotype の代わりに3つ）:
+
+4. initState(genome, W, H)
+   戻り値: アニメーション初期状態オブジェクト（任意の構造）
+   呼ばれるタイミング: 世代交代時に各セルに対して1回
+
+5. stepState(state, dt, genome, W, H)
+   state: initState が返したオブジェクト（直接変更可）
+   dt: 速度スライダー適用済みの経過時間（秒）※アプリ側でスケール済み
+   genome: この個体の遺伝子配列
+   戻り値: なし（state を in-place で更新する）
+
+6. drawFrame(ctx, state, genome, W, H)
+   ctx に現在の state を描画する
+   ※ clearRect は stepState 内または drawFrame 内で行うこと
+   （モーションブラー等のために clearRect しない設計も可能）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ オプション: PARAM_DEFS（スライダーUIのカスタマイズ）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const PARAM_DEFS = [
+  { id: 'mutRate',  label: '変異率',  min: 0.02, max: 1.0,  step: 0.01, default: 0.38 },
+  { id: 'mutScale', label: '変異幅',  min: 0.1,  max: 3.0,  step: 0.05, default: 1.3, unit: '×' },
+  { id: 'myParam',  label: 'カスタム', min: 0,   max: 10,   step: 0.1,  default: 5 },
+  // ... 必要なだけ追加可
+];
+// id が params オブジェクトのキーになる（mutateGenome に渡される）
+// 省略時は mutRate と mutScale の2スライダーがデフォルト表示される
+
+アニメーション速度スライダー（速度 0.05×〜8×）は ANIMATED=true 時に自動表示される．
+dt = 実際の経過時間 × 速度スライダー値 として stepState に渡される．
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ DESCRIPTION（モデルの説明・推奨）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+初心者向けに、必ず次の説明オブジェクトを定義してください（画面の「このモデルの説明」に表示）。
+const DESCRIPTION = {
+  summary: 'モデルの概要（1行）',
+  gene: '遺伝子が何か（数・意味）',
+  phenotype: '遺伝子が表現型にどう反映されるか',
+  selection: 'どう選ぶか（IEC は人がクリックして選ぶ＝美的選択）'
+};
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ GENE_RANGES（推奨）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const GENE_RANGES = [
+  [min0, max0],  // 遺伝子0
+  [min1, max1],  // 遺伝子1
+  ...
+];
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 制約
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- 外部ライブラリ使用不可（純粋 JS + Canvas 2D API のみ）
+- グローバル変数定義不可（GENE_RANGES, PARAM_DEFS, ANIMATED 等の const は可）
+- 関数名 createInitialGenome / mutateGenome / drawPhenotype / initState /
+  stepState / drawFrame は変更不可
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ Canvas 2D API 主要メソッド
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ctx.clearRect(x,y,w,h)   ctx.fillRect(x,y,w,h)
+ctx.beginPath()           ctx.moveTo(x,y) / lineTo(x,y)
+ctx.arc(cx,cy,r,s,e)     ctx.stroke() / fill()
+ctx.strokeStyle / fillStyle = 'hsl(h,s%,l%)' or '#rrggbb'
+ctx.lineWidth = 1.5
+ctx.save() / restore()    ctx.translate(x,y) / rotate(a) / scale(sx,sy)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ コードテンプレート（静止モード）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const GENE_RANGES = [ ... ];
+const PARAM_DEFS  = [ ... ];   // 省略可
+function createInitialGenome() { ... }
+function mutateGenome(genome, params = {}) { ... }
+function drawPhenotype(ctx, genome, W, H) { ... }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ コードテンプレート（アニメーションモード）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const ANIMATED    = true;
+const GENE_RANGES = [ ... ];
+const PARAM_DEFS  = [ ... ];   // 省略可
+function createInitialGenome() { ... }
+function mutateGenome(genome, params = {}) { ... }
+function initState(genome, W, H)           { return { ... }; }
+function stepState(state, dt, genome, W, H){ /* state を更新 */ }
+function drawFrame(ctx, state, genome, W, H){ /* 描画 */ }
+`;
+
+// ══════════════════════════════════════════════════════════════
+// Default code: 枝分かれ図形（静止）
+// ══════════════════════════════════════════════════════════════
+const CODE_STATIC = `const TITLE = '枝分かれ図形';
+// ── 枝分かれ図形（9遺伝子）──────────────────────────────────
+const DESCRIPTION = { summary:'9個の遺伝子から、木のような枝分かれ図形が育ちます。', gene:'9個の整数遺伝子。枝の角度・長さ・左右の伸び方、最後の1個が分岐の深さを決めます。', phenotype:'再帰的に枝分かれする線画（生き物のような形）。', selection:'好みの形をクリックして選ぶ＝あなたの美的感覚が淘汰圧になります。' };
+// 9個の「整数」遺伝子で、再帰的な枝分かれ樹形を左右対称に描きます。
+//   Gene1〜3 … 枝の水平変位 dx（対称枝には符号反転 -Gene を適用）
+//   Gene4〜8 … 枝の垂直変位 dy（左右対称な枝には同じ dy）
+//   Gene9    … 再帰の深さ（order）。大きいほど複雑・緻密に。
+// 突然変異は「いずれか1遺伝子に ±1」（人為淘汰で形が進化）。
+
+const GENE_RANGES = [
+  [-9, 9],  // Gene1 : dx[3] (= -dx[1])
+  [-9, 9],  // Gene2 : dx[4] (= -dx[0])
+  [-9, 9],  // Gene3 : dx[5] (= -dx[7])
+  [-9, 9],  // Gene4 : dy[2]   （中心の垂直な枝）
+  [-9, 9],  // Gene5 : dy[3] = dy[1]
+  [-9, 9],  // Gene6 : dy[4] = dy[0]
+  [-9, 9],  // Gene7 : dy[5] = dy[7]
+  [-9, 9],  // Gene8 : dy[6]
+  [1, 8],   // Gene9 : 再帰の深さ（order）
+];
+
+const PARAM_DEFS = [
+  { id:'nMut',     label:'変異遺伝子数', min:1, max:4, step:1, default:2,
+    help:'1個体あたり何個の遺伝子を変異させるか。標準は 1。' },
+  { id:'stepSize', label:'変異の大きさ', min:1, max:3, step:1, default:1,
+    help:'変異で遺伝子に ±いくつ加えるか。原典は ±1。' },
+];
+
+// 初期個体：穏やかな樹形になるよう値を控えめに（整数）
+function createInitialGenome() {
+  const g = GENE_RANGES.map(function(r){ return Math.round(r[0] + Math.random()*(r[1]-r[0])); });
+  for (let i = 0; i < 8; i++) g[i] = Math.max(-5, Math.min(5, g[i]));   // dx/dy は控えめに
+  g[8] = 3 + Math.floor(Math.random()*4);                              // 深さ 3〜6
+  return g;
+}
+
+// 突然変異：原典どおり「いずれかの遺伝子に ±1」（互いに異なる nMut 個・大きさ stepSize）
+function mutateGenome(genome, params = {}) {
+  const n    = Math.max(1, Math.round(params.nMut     != null ? params.nMut     : 1));
+  const step = Math.max(1, Math.round(params.stepSize != null ? params.stepSize : 1));
+  const g = genome.map(function(v){ return Math.round(v); });
+  // 遺伝子の番号をシャッフルして先頭 n 個（重複しない）を選ぶ
+  const idx = g.map(function(_, i){ return i; });
+  for (let i = idx.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = idx[i]; idx[i] = idx[j]; idx[j] = tmp;
+  }
+  const count = Math.min(n, g.length);
+  for (let k = 0; k < count; k++) {
+    const i   = idx[k];
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    const mn = GENE_RANGES[i][0], mx = GENE_RANGES[i][1];
+    g[i] = Math.max(mn, Math.min(mx, g[i] + dir*step));
+  }
+  return g;
+}
+
+// 9遺伝子 → 8方向の変位ベクトル dx[], dy[]（対称マッピング）
+function genesToVectors(G) {
+  const dx = [ -G[1], -G[0], 0, G[0], G[1], G[2], 0, -G[2] ];
+  const dy = [  G[5],  G[4], G[3], G[4], G[5], G[6], G[7], G[6] ];
+  return { dx: dx, dy: dy };
+}
+
+function drawPhenotype(ctx, genome, W, H) {
+  const G = genome.map(function(v){ return Math.round(v); });
+  const v = genesToVectors(G);
+  const order0 = Math.max(1, Math.min(9, G[8]));
+
+  // まず線分を数学座標(y上向き)で生成。dir=2（真上）から左右対称に展開。
+  const segs = [];
+  (function tree(x, y, dir, order) {
+    if (order <= 0) return;
+    const d  = ((dir % 8) + 8) % 8;
+    const nx = x + order * v.dx[d];     // 根に近いほど（order大）枝が長い
+    const ny = y + order * v.dy[d];
+    segs.push([x, y, nx, ny]);
+    tree(nx, ny, dir - 1, order - 1);   // 左右へ分岐（対称）
+    tree(nx, ny, dir + 1, order - 1);
+  })(0, 0, 2, order0);
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, W, H);
+  if (!segs.length) return;
+
+  // バウンディングボックスを求めて自動で拡大縮小・中央寄せ（常に収まる）
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const s of segs) {
+    if (s[0] < minX) minX = s[0]; if (s[0] > maxX) maxX = s[0];
+    if (s[2] < minX) minX = s[2]; if (s[2] > maxX) maxX = s[2];
+    if (s[1] < minY) minY = s[1]; if (s[1] > maxY) maxY = s[1];
+    if (s[3] < minY) minY = s[3]; if (s[3] > maxY) maxY = s[3];
+  }
+  const bw = Math.max(1, maxX - minX), bh = Math.max(1, maxY - minY);
+  const margin = 12;
+  const scale = Math.min((W - 2*margin) / bw, (H - 2*margin) / bh);
+  const cxm = (minX + maxX) / 2, cym = (minY + maxY) / 2;
+  const toX = function(x){ return W/2 + (x - cxm) * scale; };
+  const toY = function(y){ return H/2 - (y - cym) * scale; };   // y上向き→画面下向きに反転
+
+  ctx.strokeStyle = '#dbe6f3';
+  ctx.lineWidth = 1.2;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (const s of segs) { ctx.moveTo(toX(s[0]), toY(s[1])); ctx.lineTo(toX(s[2]), toY(s[3])); }
+  ctx.stroke();
+}
+
+// 遺伝子＝9個の整数。Gene1〜3→水平変位 dx（対称枝は -Gene）、Gene4〜8→垂直変位 dy（左右対称）、
+// Gene9→再帰の深さ。dir=2（真上）から dir±1 で左右対称に分岐する再帰木です。
+// 突然変異は1遺伝子に ±1（人為淘汰）。色や線幅・非対称の遺伝子は後年の拡張のため原典では持ちません。
+// 表示は形が常に収まるよう自動で中央寄せ・拡大縮小しています。`;
+
+// ══════════════════════════════════════════════════════════════
+// Sample code: 群れ（アニメーション）
+// ══════════════════════════════════════════════════════════════
+const CODE_FLOCK = `const TITLE = '群れ（フロッキング）';
+// ── 群れ（フロッキング）モデル（アニメーション）──────────────────────
+const DESCRIPTION = { summary:'遺伝子が群れの行動ルールの強さを決め、群れの動き方が進化します。', gene:'9個の実数：個体数、分離・整列・凝集の知覚半径、3ルールの重み（0でそのルールOFF）、速度、色相。重みを単位ベクトルで合成するので各遺伝子の影響が群れの形にはっきり出ます。', phenotype:'多数の個体が一定速度で動く群れ。整列の重みで向きの揃い、凝集で密集、分離で間隔が変わります。', selection:'好きな群れの動き（バラバラ／流れ／密集など）をクリックして選びます。' };
+// 遺伝子: 個体数・3ルールの半径と強さ・最高速度・色相
+
+const ANIMATED = true;  // ← アニメーションモードを有効化
+
+const GENE_RANGES = [
+  [8,   26  ],   // 0: 個体数
+  [5,   30  ],   // 1: 分離 (Separation) 半径 px
+  [15,  70  ],   // 2: 整列 (Alignment)  半径 px
+  [20,  90  ],   // 3: 凝集 (Cohesion)   半径 px
+  [0,   5   ],   // 4: 分離の重み（0で分離しない）
+  [0,   5   ],   // 5: 整列の重み（0で向きはバラバラ）
+  [0,   5   ],   // 6: 凝集の重み（0で集まらない）
+  [45,  170 ],   // 7: 速度 (px/s・一定)
+  [0,   360 ],   // 8: 色相
+];
+
+const PARAM_DEFS = [
+  { id: 'mutRate',  label: '変異率', min: 0.02, max: 1.0,  step: 0.01, default: 0.38,
+    help: '各遺伝子が変異する確率。大きいほど子が親から大きく変わります。' },
+  { id: 'mutScale', label: '変異幅', min: 0.1,  max: 3.0,  step: 0.05, default: 1.3, unit: '×',
+    help: '1回の変異で値が動く大きさ（幅）の倍率。' },
+];
+
+function createInitialGenome() {
+  return GENE_RANGES.map(([mn,mx]) => mn + Math.random()*(mx-mn));
+}
+
+function mutateGenome(genome, params = {}) {
+  const rate  = params.mutRate  ?? 0.38;
+  const scale = params.mutScale ?? 1.3;
+  return genome.map((g, i) => {
+    if (Math.random() < rate) {
+      const [mn,mx] = GENE_RANGES[i];
+      const delta = (mx-mn)*(Math.random()*0.18-0.09)*scale;
+      return Math.min(mx, Math.max(mn, g+delta));
+    }
+    return g;
+  });
+}
+
+// 初期状態: 個体の位置・速度配列
+function initState(genome, W, H) {
+  const n    = Math.round(genome[0]);
+  const maxV = genome[7];
+  const flock = [];
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = maxV * (0.3 + Math.random()*0.5);
+    flock.push({ x: Math.random()*W, y: Math.random()*H,
+                 vx: Math.cos(a)*s,  vy: Math.sin(a)*s });
+  }
+  return { flock };
+}
+
+// 毎フレーム呼ばれる: state を in-place 更新
+// dt = 経過時間(秒) × 速度スライダー値（アプリ側でスケール済み）
+function stepState(state, dt, genome, W, H) {
+  const sepR=genome[1], aliR=genome[2], cohR=genome[3];
+  const sepW=genome[4], aliW=genome[5], cohW=genome[6];
+  const spd=genome[7];
+  const INERTIA=8;                         // 現在の向きの保ちやすさ（小さいほど遺伝子の効きが激しい）
+  const bs=state.flock, n=bs.length;
+  const sR2=sepR*sepR, aR2=aliR*aliR, cR2=cohR*cohR;
+  const ndx=new Float32Array(n), ndy=new Float32Array(n), has=new Uint8Array(n);
+
+  for (let i=0;i<n;i++){
+    const b=bs[i];
+    let sepx=0,sepy=0, alix=0,aliy=0,alic=0, cohx=0,cohy=0,cohc=0;
+    for (let j=0;j<n;j++){
+      if(i===j) continue;
+      // トーラス最小像（端をまたぐ仲間も近傍に）
+      let dx=bs[j].x-b.x, dy=bs[j].y-b.y;
+      if(dx> W*0.5) dx-=W; else if(dx<-W*0.5) dx+=W;
+      if(dy> H*0.5) dy-=H; else if(dy<-H*0.5) dy+=H;
+      const d2=dx*dx+dy*dy;
+      if(d2<cR2){
+        const d=Math.sqrt(d2)+1e-4;
+        if(d2<sR2){ sepx-=dx/d/d; sepy-=dy/d/d; }            // 近いほど強く離れる
+        if(d2<aR2){ alix+=bs[j].vx; aliy+=bs[j].vy; alic++; } // 仲間の向きを集計
+        cohx+=dx; cohy+=dy; cohc++;                          // 仲間への相対位置（中心方向）
+      }
+    }
+    // 3ルールをそれぞれ「単位ベクトル × 重み」にして合成（スケールを対等に）
+    let dX=0,dY=0,m;
+    m=Math.hypot(sepx,sepy); if(m>1e-6){ dX+=sepx/m*sepW; dY+=sepy/m*sepW; }
+    if(alic){ m=Math.hypot(alix,aliy); if(m>1e-6){ dX+=alix/m*aliW; dY+=aliy/m*aliW; } }
+    if(cohc){ const ccx=cohx/cohc, ccy=cohy/cohc; m=Math.hypot(ccx,ccy); if(m>1e-6){ dX+=ccx/m*cohW; dY+=ccy/m*cohW; } }
+    if(dX!==0||dY!==0){ ndx[i]=dX; ndy[i]=dY; has[i]=1; }
+  }
+
+  for (let i=0;i<n;i++){
+    const b=bs[i];
+    if(has[i]){
+      const sp0=Math.hypot(b.vx,b.vy)+1e-6;
+      let nx=(b.vx/sp0)*INERTIA + ndx[i], ny=(b.vy/sp0)*INERTIA + ndy[i];
+      const mm=Math.hypot(nx,ny)+1e-6;
+      b.vx=nx/mm*spd; b.vy=ny/mm*spd;
+    } else {
+      const mm=Math.hypot(b.vx,b.vy)+1e-6; b.vx=b.vx/mm*spd; b.vy=b.vy/mm*spd; // 速さは一定
+    }
+    b.x=((b.x+b.vx*dt)%W+W)%W;
+    b.y=((b.y+b.vy*dt)%H+H)%H;
+  }
+}
+
+// 現在の state を描画
+function drawFrame(ctx, state, genome, W, H) {
+  const hue=genome[8];
+  // 半透明で上書き → 残像（モーションブラー）効果
+  ctx.fillStyle='rgba(8,12,20,0.28)';
+  ctx.fillRect(0,0,W,H);
+
+  for (const b of state.flock) {
+    const angle=Math.atan2(b.vy,b.vx);
+    const spd=Math.sqrt(b.vx*b.vx+b.vy*b.vy);
+    const sz=3.5+spd/genome[7]*3.5;
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(angle);
+    ctx.fillStyle=\`hsl(\${hue},78%,63%)\`;
+    ctx.beginPath();
+    ctx.moveTo(sz, 0);
+    ctx.lineTo(-sz*0.65, sz*0.45);
+    ctx.lineTo(-sz*0.65,-sz*0.45);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+}`;
+
+// ══════════════════════════════════════════════════════════════
+// Default params（PARAM_DEFS 未定義時）
+// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// 追加モデル①：ステンドグラス（ボロノイ分割＋配色）— 静止
+// ══════════════════════════════════════════════════════════════
+const CODE_STAINED = `const TITLE = 'ステンドグラス';
+// ── ステンドグラス（ボロノイ分割＋配色）─────────────────────────────
+const DESCRIPTION = { summary:'ボロノイ分割と配色で、ステンドグラス風の模様を作ります。', gene:'母点の座標や色（色相・明度）などを表す実数列。', phenotype:'平面をボロノイ領域に分けて彩色したステンドグラス風の画像。', selection:'気に入った配色・分割をクリックして選びます。' };
+// 平面を「種点」で最も近い領域に分け（ボロノイ図）、各領域を色で塗ります。
+// 遺伝子＝各種点の位置と色相・明度、全体の彩度と鉛線（境界）の太さ。
+// 空間分割の可視化。種点を少し動かすと領域の形と鉛線が変わります。
+
+const N_SEED = 8;                              // 種点の数
+const GENE_RANGES = (function(){
+  const r = [];
+  for (let i = 0; i < N_SEED; i++) {
+    r.push([0, 1]);     // x
+    r.push([0, 1]);     // y
+    r.push([0, 360]);   // 色相
+    r.push([35, 78]);   // 明度(%)
+  }
+  r.push([45, 95]);     // 全体の彩度(%)
+  r.push([0.5, 4]);     // 鉛線の太さ
+  return r;
+})();
+
+const PARAM_DEFS = [
+  { id:'mutRate',  label:'変異率', min:0.02, max:1.0, step:0.01, default:0.30,
+    help:'各遺伝子が変異する確率。' },
+  { id:'mutScale', label:'変異幅', min:0.1,  max:3.0, step:0.05, default:1.3, unit:'×',
+    help:'1回の変異で値が動く大きさの倍率。' },
+];
+
+function createInitialGenome(){
+  return GENE_RANGES.map(function(r){ return r[0] + Math.random()*(r[1]-r[0]); });
+}
+function mutateGenome(genome, params){
+  params = params || {};
+  const rate  = params.mutRate  != null ? params.mutRate  : 0.30;
+  const scale = params.mutScale != null ? params.mutScale : 1.3;
+  return genome.map(function(g, i){
+    if (Math.random() < rate) {
+      const mn = GENE_RANGES[i][0], mx = GENE_RANGES[i][1];
+      const delta = (mx - mn) * (Math.random()*0.18 - 0.09) * scale;
+      return Math.min(mx, Math.max(mn, g + delta));
+    }
+    return g;
+  });
+}
+
+// HSL(0..1, 0..1, 0..1) → [r,g,b]
+function hsl2rgb(h, s, l){
+  function f(n){ const k=(n+h*12)%12; const a=s*Math.min(l,1-l);
+    return l - a*Math.max(-1, Math.min(k-3, 9-k, 1)); }
+  return [Math.round(f(0)*255), Math.round(f(8)*255), Math.round(f(4)*255)];
+}
+
+function drawPhenotype(ctx, genome, W, H){
+  const seeds = [];
+  for (let i = 0; i < N_SEED; i++) {
+    const b = i*4;
+    seeds.push({ x:genome[b]*W, y:genome[b+1]*H, hue:genome[b+2], light:genome[b+3] });
+  }
+  const sat  = genome[N_SEED*4];
+  const lead = genome[N_SEED*4 + 1];
+  const img  = ctx.createImageData(W, H);
+  const data = img.data;
+  const owner = new Int16Array(W*H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let best = 0, bd = 1e18;
+      for (let s = 0; s < seeds.length; s++) {
+        const dx = x - seeds[s].x, dy = y - seeds[s].y, d = dx*dx + dy*dy;
+        if (d < bd) { bd = d; best = s; }
+      }
+      owner[y*W+x] = best;
+      const c = hsl2rgb(seeds[best].hue/360, sat/100, seeds[best].light/100);
+      const idx = (y*W + x) * 4;
+      data[idx]=c[0]; data[idx+1]=c[1]; data[idx+2]=c[2]; data[idx+3]=255;
+    }
+  }
+  // 鉛線（境界）を暗く。lead で太さを調整（膨張）
+  const thick = Math.max(1, Math.round(lead));
+  const edge = new Uint8Array(W*H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const o = owner[y*W+x];
+    if ((x>0 && owner[y*W+x-1]!==o) || (y>0 && owner[(y-1)*W+x]!==o)) edge[y*W+x] = 1;
+  }
+  for (let t = 1; t < thick; t++) {
+    const cur = edge.slice();
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (cur[y*W+x]) continue;
+      if ((x>0&&cur[y*W+x-1])||(x<W-1&&cur[y*W+x+1])||(y>0&&cur[(y-1)*W+x])||(y<H-1&&cur[(y+1)*W+x]))
+        edge[y*W+x] = 1;
+    }
+  }
+  for (let p = 0; p < W*H; p++) if (edge[p]) { const idx=p*4; data[idx]=24; data[idx+1]=22; data[idx+2]=30; }
+  ctx.putImageData(img, 0, 0);
+}
+
+// 遺伝子＝8種点×(x, y, 色相, 明度) ＋ 全体の彩度・鉛線の太さ（計34個）。
+// 最も近い種点で平面を分けるボロノイ図を描き、領域ごとに色を塗ります。
+// 種点の位置を動かすと境界（鉛線）が動き、空間分割の様子が観察できます。`;
+
+// ══════════════════════════════════════════════════════════════
+// 追加モデル②：Life-like セルオートマトン（B/S ルールの進化）— アニメ
+// ══════════════════════════════════════════════════════════════
+const CODE_SOFTBODY = `const TITLE = '仮想生物（ソフトボディ）';
+// ── 仮想生物の進化（ソフトボディ・ボクセル）──────────────────────
+const DESCRIPTION = { summary:'5×5ボクセルのソフトボディ生物。形と動きが遺伝子で決まり、各セルで歩きます。', gene:'各マスの種類（空/剛体/軟体/アクチュエータ）と位相などの実数列。', phenotype:'質点バネで作られた生物が歩くアニメーション。', selection:'好みの形・歩き方をクリックして選びます。' };
+// 5×5 のボクセルで体を作り、アクチュエータの伸縮で地面を歩かせます。
+//   形態遺伝子(25個): 各マスの種類 0=空 1=剛体 2=軟体 3=水平アクチュエータ 4=垂直アクチュエータ
+//   制御遺伝子(25個): 各マスの伸縮の「位相 φ」（アクチュエータでのみ意味を持つ）
+//   ＋ 全体の「振幅」「周波数」。質点バネの物理で動きます。
+// 気に入った動き・形をクリックして淘汰すると、形と動きが一緒に進化します。
+
+const ANIMATED = true;
+const GW = 5, GH = 5;                 // ボクセル格子 5×5
+const N = GW*GH;                      // 25
+const I_AMP = 2*N, I_FREQ = 2*N + 1;  // 50, 51
+
+const GENE_RANGES = (function(){
+  const r = [];
+  for (let i = 0; i < N; i++) r.push([0, 4.999]);   // 0..24 : 形態（floor で 0..4）
+  for (let i = 0; i < N; i++) r.push([0, 6.283]);   // 25..49: 制御（位相 φ）
+  r.push([0.05, 0.5]);   // 50: 振幅
+  r.push([0.4, 2.0]);    // 51: 周波数
+  return r;
+})();
+
+const PARAM_DEFS = [
+  { id:'mutRate',  label:'変異率', min:0.02, max:1.0, step:0.01, default:0.12,
+    help:'各遺伝子が変異する確率。小さめだと子が親に似て選びやすくなります。' },
+  { id:'mutScale', label:'変異幅', min:0.1,  max:3.0, step:0.05, default:1.3, unit:'×',
+    help:'1回の変異で値が動く大きさの倍率。' },
+];
+
+function typeAt(genome, r, c){ let t = Math.floor(genome[r*GW + c]); if (t<0) t=0; if (t>4) t=4; return t; }
+
+function createInitialGenome(){
+  const g = new Array(2*N + 2);
+  const pool = [1,2,3,3,4,4];                       // アクチュエータ多めに
+  for (let i = 0; i < N; i++) {
+    if (Math.random() < 0.45) g[i] = Math.random()*0.99;            // 空(0)
+    else { const t = pool[Math.floor(Math.random()*pool.length)]; g[i] = t + Math.random()*0.9; }
+  }
+  for (let i = 0; i < N; i++) g[N+i] = Math.random()*6.283;          // 位相
+  g[I_AMP]  = 0.2 + Math.random()*0.2;                               // 振幅 0.2〜0.4
+  g[I_FREQ] = 0.7 + Math.random()*0.9;                              // 周波数 0.7〜1.6
+  return g;
+}
+
+function mutateGenome(genome, params = {}){
+  const rate  = params.mutRate  != null ? params.mutRate  : 0.12;
+  const scale = params.mutScale != null ? params.mutScale : 1.3;
+  return genome.map(function(g, i){
+    if (Math.random() < rate) {
+      const mn = GENE_RANGES[i][0], mx = GENE_RANGES[i][1];
+      const delta = (mx - mn) * (Math.random()*0.18 - 0.09) * scale;
+      return Math.min(mx, Math.max(mn, g + delta));
+    }
+    return g;
+  });
+}
+
+// 最大の連結成分（4近傍）だけを体とする
+function largestComponent(type){
+  const seen = []; for (let r=0;r<GH;r++) seen.push(new Array(GW).fill(false));
+  let best = null, bestSize = 0;
+  for (let r=0;r<GH;r++) for (let c=0;c<GW;c++){
+    if (type[r][c]===0 || seen[r][c]) continue;
+    const stack=[[r,c]]; seen[r][c]=true; const cells=[];
+    while (stack.length){
+      const cur = stack.pop(); cells.push(cur);
+      const nb=[[cur[0]-1,cur[1]],[cur[0]+1,cur[1]],[cur[0],cur[1]-1],[cur[0],cur[1]+1]];
+      for (let k=0;k<4;k++){ const nr=nb[k][0], nc=nb[k][1];
+        if (nr>=0&&nr<GH&&nc>=0&&nc<GW&&!seen[nr][nc]&&type[nr][nc]!==0){ seen[nr][nc]=true; stack.push([nr,nc]); } }
+    }
+    if (cells.length>bestSize){ bestSize=cells.length; best=cells; }
+  }
+  const comp=[]; for (let r=0;r<GH;r++) comp.push(new Array(GW).fill(false));
+  if (best) for (let i=0;i<best.length;i++) comp[best[i][0]][best[i][1]] = true;
+  return comp;
+}
+
+function typeStiff(t){ return t===1?0.95 : t===2?0.18 : (t===3||t===4)?0.55 : 0; }
+
+function initState(genome, W, H){
+  const type=[]; for (let r=0;r<GH;r++){ const row=[]; for (let c=0;c<GW;c++) row.push(typeAt(genome,r,c)); type.push(row); }
+  const comp = largestComponent(type);
+  const VS = 16;                                  // ボクセル1辺の物理サイズ
+  const cornerIndex = {}, points = [];
+  function cid(cr,cc){ return cr*(GW+1)+cc; }
+  function corner(cr,cc){
+    const id=cid(cr,cc);
+    if (cornerIndex[id]===undefined){ cornerIndex[id]=points.length;
+      points.push({ x:cc*VS, y:cr*VS, px:cc*VS, py:cr*VS }); }
+    return cornerIndex[id];
+  }
+  const voxels=[];
+  for (let r=0;r<GH;r++) for (let c=0;c<GW;c++){
+    if (!comp[r][c]) continue;
+    voxels.push({ r:r, c:c, type:type[r][c],
+      tl:corner(r,c), tr:corner(r,c+1), bl:corner(r+1,c), br:corner(r+1,c+1) });
+  }
+  if (!voxels.length) return { empty:true, comX:0 };
+
+  function inComp(r,c){ return r>=0&&r<GH&&c>=0&&c<GW&&comp[r][c]; }
+  function phaseAt(r,c){ return genome[N + r*GW + c]; }
+  const springs=[];
+  function avg(a){ let s=0; for (let i=0;i<a.length;i++) s+=a[i]; return s/a.length; }
+  function spring(a,b,phase,stiff){
+    const A=points[a], B=points[b];
+    springs.push({ a:a, b:b, rest:Math.hypot(A.x-B.x, A.y-B.y), phase:phase, stiff:stiff });
+  }
+  // 水平エッジ（上下のボクセルが水平アクチュエータ type3 なら伸縮）
+  for (let cr=0;cr<=GH;cr++) for (let cc=0;cc<GW;cc++){
+    const below = inComp(cr,cc)   ? type[cr][cc]   : 0;
+    const above = inComp(cr-1,cc) ? type[cr-1][cc] : 0;
+    if (below===0 && above===0) continue;
+    const ph=[]; if (below===3) ph.push(phaseAt(cr,cc)); if (above===3) ph.push(phaseAt(cr-1,cc));
+    spring(corner(cr,cc), corner(cr,cc+1), ph.length?avg(ph):null, Math.max(typeStiff(below),typeStiff(above)));
+  }
+  // 垂直エッジ（左右のボクセルが垂直アクチュエータ type4 なら伸縮）
+  for (let cr=0;cr<GH;cr++) for (let cc=0;cc<=GW;cc++){
+    const right = inComp(cr,cc)   ? type[cr][cc]   : 0;
+    const left  = inComp(cr,cc-1) ? type[cr][cc-1] : 0;
+    if (right===0 && left===0) continue;
+    const ph=[]; if (right===4) ph.push(phaseAt(cr,cc)); if (left===4) ph.push(phaseAt(cr,cc-1));
+    spring(corner(cr,cc), corner(cr+1,cc), ph.length?avg(ph):null, Math.max(typeStiff(right),typeStiff(left)));
+  }
+  // 対角（せん断補強・伸縮なし）
+  for (let i=0;i<voxels.length;i++){ const v=voxels[i], st=typeStiff(v.type)*0.7;
+    spring(v.tl, v.br, null, st); spring(v.tr, v.bl, null, st); }
+
+  // 配置と表示スケール
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for (let i=0;i<points.length;i++){ const p=points[i];
+    if (p.x<minX)minX=p.x; if (p.x>maxX)maxX=p.x; if (p.y<minY)minY=p.y; if (p.y>maxY)maxY=p.y; }
+  const spanX=Math.max(1,maxX-minX), spanY=Math.max(1,maxY-minY);
+  const scale=Math.max(0.6, Math.min(3.2, Math.min(W*0.5/spanX, H*0.42/spanY)));
+  const groundY = maxY + 5;                       // 体のすぐ下に地面
+  let cx=0; for (let i=0;i<points.length;i++) cx+=points[i].x; cx/=points.length;
+
+  return { empty:false, points:points, springs:springs, voxels:voxels,
+           t:0, amp:genome[I_AMP], freq:genome[I_FREQ], scale:scale, groundY:groundY, comX:cx };
+}
+
+function stepState(state, dt, genome, W, H){
+  if (state.empty) return;
+  const sub=2, sdt=Math.min(dt,0.033)/sub, grav=1500*sdt*sdt, fr=0.55;
+  const pts=state.points, sp=state.springs;
+  for (let s=0;s<sub;s++){
+    state.t += sdt;
+    // Verlet 積分 ＋ 重力
+    for (let i=0;i<pts.length;i++){ const p=pts[i];
+      const vx=(p.x-p.px)*0.99, vy=(p.y-p.py)*0.99;
+      p.px=p.x; p.py=p.y; p.x+=vx; p.y+=vy+grav; }
+    // バネ拘束（アクチュエータは rest を周期的に伸縮）＋ 地面
+    for (let it=0; it<3; it++){
+      for (let k=0;k<sp.length;k++){ const s2=sp[k];
+        let target=s2.rest;
+        if (s2.phase!==null) target = s2.rest*(1 + state.amp*Math.sin(2*Math.PI*state.freq*state.t + s2.phase));
+        const A=pts[s2.a], B=pts[s2.b];
+        let dx=B.x-A.x, dy=B.y-A.y; const d=Math.hypot(dx,dy)||1e-6;
+        const diff=(d-target)/d*0.5*s2.stiff, ox=dx*diff, oy=dy*diff;
+        A.x+=ox; A.y+=oy; B.x-=ox; B.y-=oy;
+      }
+      for (let i=0;i<pts.length;i++){ const p=pts[i];
+        if (p.y>state.groundY){ p.y=state.groundY; const nvx=p.x-p.px; p.px=p.x-nvx*fr; p.py=p.y; } }
+    }
+  }
+  let cx=0; for (let i=0;i<pts.length;i++) cx+=pts[i].x; state.comX=cx/pts.length;
+}
+
+const VOX_COLOR = ['#ffffff','#374151','#cbd5e1','#f59e0b','#7aa2d6'];   // 0..4
+
+function drawFrame(ctx, state, genome, W, H){
+  // 明るい背景＋薄いグリッド
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#eef2f7'; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(100,116,139,.16)'; ctx.lineWidth=1;
+  for (let x=0;x<=W;x+=15){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y=0;y<=H;y+=15){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+  const sgY=H-22;
+  ctx.strokeStyle='#111827'; ctx.lineWidth=4;
+  ctx.beginPath(); ctx.moveTo(0,sgY); ctx.lineTo(W,sgY); ctx.stroke();
+  if (state.empty){ ctx.fillStyle='#94a3b8'; ctx.font='10px IBM Plex Mono,monospace'; ctx.textAlign='center';
+    ctx.fillText('（体がありません）', W/2, H/2); return; }
+
+  const scale=state.scale, ox=W*0.42 - state.comX*scale, pts=state.points;
+  function SX(wx){ return ox + wx*scale; }
+  function SY(wy){ return sgY - (state.groundY - wy)*scale; }
+  for (let i=0;i<state.voxels.length;i++){ const v=state.voxels[i];
+    const TL=pts[v.tl], TR=pts[v.tr], BR=pts[v.br], BL=pts[v.bl];
+    ctx.beginPath();
+    ctx.moveTo(SX(TL.x),SY(TL.y)); ctx.lineTo(SX(TR.x),SY(TR.y));
+    ctx.lineTo(SX(BR.x),SY(BR.y)); ctx.lineTo(SX(BL.x),SY(BL.y)); ctx.closePath();
+    ctx.fillStyle=VOX_COLOR[v.type]; ctx.fill();
+    ctx.strokeStyle='rgba(15,23,42,.55)'; ctx.lineWidth=1.4; ctx.stroke();
+  }
+}
+
+// 遺伝子パネル用：形態（色つき）と位相（数値）の 5×5 グリッドを表示（添付図と同じ形式）
+function geneGrid(genome){
+  const fg=['#1e293b','#ffffff','#1e293b','#1e293b','#1e293b'];
+  const morph=[], phase=[];
+  for (let i=0;i<N;i++){
+    const t=Math.max(0,Math.min(4,Math.floor(genome[i])));
+    morph.push({ text:String(t), bg:VOX_COLOR[t], fg:fg[t] });
+    const isAct=(t===3||t===4);
+    phase.push({ text: isAct ? genome[N+i].toFixed(2) : '', bg: isAct?VOX_COLOR[t]:'#ffffff', fg:'#1e293b' });
+  }
+  return {
+    cols:5,
+    legend:[
+      {name:'0 空',  bg:VOX_COLOR[0]}, {name:'1 剛体', bg:VOX_COLOR[1]}, {name:'2 軟体', bg:VOX_COLOR[2]},
+      {name:'3 水平', bg:VOX_COLOR[3]}, {name:'4 垂直', bg:VOX_COLOR[4]},
+    ],
+    grids:[
+      { label:'形態遺伝子：ボクセルの種類', cells:morph },
+      { label:'制御遺伝子：位相 φ（アクチュエータのみ）', cells:phase },
+    ],
+    note:'振幅 ' + genome[I_AMP].toFixed(2) + ' ／ 周波数 ' + genome[I_FREQ].toFixed(2),
+  };
+}
+
+// 形態(25)＋位相(25)＋振幅＋周波数 の計52遺伝子。最大連結成分を質点バネの体にして物理で歩かせます。
+// 水平アクチュエータ(3)は横幅、垂直アクチュエータ(4)は高さを位相 φ・振幅・周波数で周期的に伸縮させます。
+// 評価式はなく、あなたが「進む・面白い・好き」と思う個体を選ぶ人為淘汰で、形と動きが進化します。`;
+
+// ══════════════════════════════════════════════════════════════
+// 追加モデル③：数式アート（z = f(x,y) の濃淡）— 静止
+// ══════════════════════════════════════════════════════════════
+const CODE_MATHART = `const TITLE = '数式アート';
+// ── 数式アート（z = f(x,y) の濃淡）────────────────────────────────
+const DESCRIPTION = { summary:'2変数関数 z=f(x,y) の値を色・濃淡で描く数式アートです。', gene:'関数の係数・周波数・位相などを表す実数列。', phenotype:'平面上の z=f(x,y) を色で表した模様。', selection:'好みの模様をクリックして選びます。' };
+// 少数の sin を重ねた関数 z(x,y) を計算し、値を色に対応づけて描きます。
+// 遺伝子＝各項の周波数(x,y方向)と位相、交差項の強さ、色相の基準と幅。
+// 係数を少し変えると模様が連続的に変化します（パラメータ空間の可視化）。
+
+const GENE_RANGES = [
+  [-3, 3], [-3, 3], [0, 6.283],   // 項1: x周波数, y周波数, 位相
+  [-3, 3], [-3, 3], [0, 6.283],   // 項2
+  [-3, 3], [-3, 3], [0, 6.283],   // 項3
+  [0, 1.4],                        // 交差項の強さ
+  [0, 360],                        // 色相の基準
+  [20, 180],                       // 色相の幅
+];
+
+const PARAM_DEFS = [
+  { id:'mutRate',  label:'変異率', min:0.02, max:1.0, step:0.01, default:0.30,
+    help:'各遺伝子が変異する確率。' },
+  { id:'mutScale', label:'変異幅', min:0.1,  max:2.0, step:0.05, default:0.8, unit:'×',
+    help:'1回の変異の大きさの倍率（小さめだと模様が滑らかに変化）。' },
+];
+
+function createInitialGenome(){
+  return GENE_RANGES.map(function(r){ return r[0] + Math.random()*(r[1]-r[0]); });
+}
+function mutateGenome(genome, params){
+  params = params || {};
+  const rate  = params.mutRate  != null ? params.mutRate  : 0.30;
+  const scale = params.mutScale != null ? params.mutScale : 0.8;
+  return genome.map(function(g, i){
+    if (Math.random() < rate) {
+      const mn = GENE_RANGES[i][0], mx = GENE_RANGES[i][1];
+      const delta = (mx - mn) * (Math.random()*0.16 - 0.08) * scale;
+      return Math.min(mx, Math.max(mn, g + delta));
+    }
+    return g;
+  });
+}
+function hsl2rgb(h, s, l){
+  function f(n){ const k=(n+h*12)%12; const a=s*Math.min(l,1-l);
+    return l - a*Math.max(-1, Math.min(k-3, 9-k, 1)); }
+  return [Math.round(f(0)*255), Math.round(f(8)*255), Math.round(f(4)*255)];
+}
+function drawPhenotype(ctx, genome, W, H){
+  const a0=genome[0], b0=genome[1], p0=genome[2];
+  const a1=genome[3], b1=genome[4], p1=genome[5];
+  const a2=genome[6], b2=genome[7], p2=genome[8];
+  const cross=genome[9], hueBase=genome[10], hueSpan=genome[11];
+  const img = ctx.createImageData(W, H);
+  const data = img.data;
+  for (let y = 0; y < H; y++) {
+    const Y = ((y/H)*2 - 1) * 3;        // -3..3
+    for (let x = 0; x < W; x++) {
+      const X = ((x/W)*2 - 1) * 3;
+      const z = Math.sin(a0*X + b0*Y + p0)
+              + Math.sin(a1*X + b1*Y + p1)
+              + Math.sin(a2*X + b2*Y + p2)
+              + cross*Math.sin(a0*X * b1*Y);
+      let t = (z / (3 + cross) + 1) / 2;          // 0..1
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const c = hsl2rgb((((hueBase + t*hueSpan)%360)/360), 0.7, 0.28 + t*0.46);
+      const idx = (y*W+x)*4;
+      data[idx]=c[0]; data[idx+1]=c[1]; data[idx+2]=c[2]; data[idx+3]=255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// 遺伝子＝3つの正弦波（各 x/y 周波数・位相）＋交差項の強さ＋色相の基準・幅（計12個）。
+// z(x,y) を計算して 0..1 に正規化し、色相と明るさに対応づけて描いています。
+// 変異幅を小さめにすると模様が少しずつ変わり、好みの方向へ選びやすくなります。`;
+
+// ══════════════════════════════════════════════════════════════
+// 追加モデル④：顔の進化（特徴パラメータ）— 静止
+// ══════════════════════════════════════════════════════════════
+const CODE_FACE = `const TITLE = '顔の進化';
+// ── 顔の進化（特徴パラメータ）─────────────────────────────────────
+const DESCRIPTION = { summary:'顔の特徴パラメータから似顔絵を生成し、美的選択で進化させます。', gene:'目・口・輪郭・配色などの特徴を表す実数列。', phenotype:'特徴パラメータから描かれた顔。', selection:'好みの顔をクリックして選びます。' };
+// 顔・目・眉・鼻・口・髪の形を遺伝子で表し、人の“好み”で選んで進化させます。
+// 美的選択（人間が適応度になる）の最も分かりやすい例です。
+
+const GENE_RANGES = [
+  [44, 64],   // 0  顔の幅(半径)
+  [54, 78],   // 1  顔の高さ(半径)
+  [12, 44],   // 2  肌の色相
+  [20, 55],   // 3  肌の彩度(%)
+  [60, 88],   // 4  肌の明度(%)
+  [4, 13],    // 5  目の大きさ
+  [13, 27],   // 6  目の間隔(中心から半分)
+  [-8, 8],    // 7  目の高さオフセット
+  [0, 360],   // 8  虹彩の色相
+  [-22, 22],  // 9  眉の角度(度)
+  [6, 18],    // 10 眉の高さ(目の上)
+  [1, 4],     // 11 眉の太さ
+  [8, 26],    // 12 鼻の長さ
+  [3, 11],    // 13 鼻の幅
+  [16, 44],   // 14 口の幅
+  [-12, 16],  // 15 口の曲がり(＋で笑顔)
+  [1.5, 6],   // 16 口の太さ
+  [330, 360], // 17 唇の色相
+  [0, 1],     // 18 髪(>0.5 で描画)
+  [0, 360],   // 19 髪の色相
+];
+
+const PARAM_DEFS = [
+  { id:'mutRate',  label:'変異率', min:0.02, max:1.0, step:0.01, default:0.32,
+    help:'各遺伝子が変異する確率。' },
+  { id:'mutScale', label:'変異幅', min:0.1,  max:3.0, step:0.05, default:1.3, unit:'×',
+    help:'1回の変異で顔つきが動く大きさの倍率。' },
+];
+
+function createInitialGenome(){
+  return GENE_RANGES.map(function(r){ return r[0] + Math.random()*(r[1]-r[0]); });
+}
+function mutateGenome(genome, params){
+  params = params || {};
+  const rate  = params.mutRate  != null ? params.mutRate  : 0.32;
+  const scale = params.mutScale != null ? params.mutScale : 1.3;
+  return genome.map(function(g, i){
+    if (Math.random() < rate) {
+      const mn = GENE_RANGES[i][0], mx = GENE_RANGES[i][1];
+      const delta = (mx - mn) * (Math.random()*0.18 - 0.09) * scale;
+      return Math.min(mx, Math.max(mn, g + delta));
+    }
+    return g;
+  });
+}
+
+function drawPhenotype(ctx, genome, W, H){
+  const cx = W/2, cy = H/2 + 4;
+  const fw = genome[0], fh = genome[1];
+  const skin = 'hsl(' + genome[2] + ',' + genome[3] + '%,' + genome[4] + '%)';
+  const eyeR = genome[5], eyeDx = genome[6], eyeY = genome[7];
+  const iris = 'hsl(' + genome[8] + ',60%,40%)';
+  const browA = genome[9]*Math.PI/180, browUp = genome[10], browW = genome[11];
+  const noseLen = genome[12], noseW = genome[13];
+  const mouthW = genome[14], mouthCurve = genome[15], mouthTh = genome[16];
+  const lip = 'hsl(' + (genome[17]%360) + ',55%,55%)';
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, W, H);
+
+  // 髪（顔より少し大きい楕円を背面に）
+  if (genome[18] > 0.5) {
+    ctx.fillStyle = 'hsl(' + genome[19] + ',45%,30%)';
+    ctx.beginPath(); ctx.ellipse(cx, cy-6, fw+7, fh+7, 0, 0, Math.PI*2); ctx.fill();
+  }
+  // 顔
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.ellipse(cx, cy, fw, fh, 0, 0, Math.PI*2); ctx.fill();
+
+  const eyeCY = cy - 8 + eyeY;
+  // 目（白目＋虹彩＋瞳孔）
+  const sides = [-1, 1];
+  for (let k = 0; k < 2; k++) {
+    const sgn = sides[k], ex = cx + sgn*eyeDx;
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath(); ctx.ellipse(ex, eyeCY, eyeR, eyeR*0.72, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = iris;
+    ctx.beginPath(); ctx.arc(ex, eyeCY, eyeR*0.45, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#111827';
+    ctx.beginPath(); ctx.arc(ex, eyeCY, eyeR*0.2, 0, Math.PI*2); ctx.fill();
+  }
+  // 眉
+  ctx.strokeStyle = 'hsl(' + genome[2] + ',40%,25%)';
+  ctx.lineWidth = browW; ctx.lineCap = 'round';
+  for (let k = 0; k < 2; k++) {
+    const sgn = sides[k], ex = cx + sgn*eyeDx, by = eyeCY - browUp;
+    const dx = eyeR*1.1, dy = Math.tan(browA)*dx*sgn;
+    ctx.beginPath(); ctx.moveTo(ex - dx, by + dy*0.5); ctx.lineTo(ex + dx, by - dy*0.5); ctx.stroke();
+  }
+  // 鼻
+  ctx.strokeStyle = 'hsl(' + genome[2] + ',' + genome[3] + '%,' + Math.max(20, genome[4]-30) + '%)';
+  ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx, eyeCY + 4);
+  ctx.lineTo(cx - noseW, eyeCY + 4 + noseLen);
+  ctx.lineTo(cx + noseW*0.6, eyeCY + 4 + noseLen);
+  ctx.stroke();
+  // 口（笑顔／への字を曲線で）
+  ctx.strokeStyle = lip; ctx.lineWidth = mouthTh; ctx.lineCap = 'round';
+  const my = cy + fh*0.45;
+  ctx.beginPath();
+  ctx.moveTo(cx - mouthW/2, my);
+  ctx.quadraticCurveTo(cx, my + mouthCurve, cx + mouthW/2, my);
+  ctx.stroke();
+}
+
+// 遺伝子＝顔・目・眉・鼻・口・髪の形や色（計20個）。式で測らず“見た目の好み”で選びます。
+// 気に入った顔をクリックすると、その特徴を受け継いだ次世代9個が並びます。
+// 2親モードでは2つの顔を交叉して混ぜることもできます。`;
+
+const DEFAULT_PARAMS = [
+  { id:'mutRate',  label:'変異率', min:0.02, max:1.0,  step:0.01, default:0.38,
+    help:'各遺伝子が変異する確率。大きいほど子が親から大きく変わります。' },
+  { id:'mutScale', label:'変異幅', min:0.1,  max:3.0,  step:0.05, default:1.3, unit:'×',
+    help:'1回の変異で値が動く大きさ（幅）の倍率。' },
+];
+
+// ══════════════════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════════════════
+let defs        = null;
+let population  = [];
+let generation  = 0;
+let mode        = 'mutation';
+let parentAIdx  = null;
+let parentBIdx  = null;
+let paramDefs   = DEFAULT_PARAMS;
+let paramVals   = {};
+let isAnimated  = false;
+
+// Animation
+let masterHandle = null;
+let lastMasterTs = null;
+let animPaused   = false;
+let cellStates   = new Array(9).fill(null);
+let lineage      = [];        // 系統：各世代で選んだ親 [{gen, genome}]
+let lineageArchive = [];      // 過去の系統（巻き戻して枝分かれしたときに保持される）
+let pendingBranch  = null;    // 巻き戻し位置。次に選択したときここから新しい系統が始まる
+const LINEAGE_ARCHIVE_MAX = 4;
+let showLineage  = false;
+
+// 全画面9個体選択モード
+let gridFsActive = false;
+let fsHome = { genBadge:null, hint:null, grid:null };
+
+// ══════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  buildGrid();
+  const ta = document.getElementById('codeArea');
+  ta.addEventListener('input', () => syncGutter());
+  ta.addEventListener('scroll', () => { document.getElementById('codeGutter').scrollTop = ta.scrollTop; });
+  document.getElementById('codeArea').value = CODE_EYECANDY;
+  applyCode(true);
+  syncGutter();
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeZoom(); closeHelp(); if (gridFsActive) exitGridFullscreen(); } });
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && gridFsActive) exitGridFullscreen(); });
+  document.addEventListener('webkitfullscreenchange', () => { if (!document.webkitFullscreenElement && gridFsActive) exitGridFullscreen(); });
+  window.addEventListener('resize', () => { if (gridFsActive) { render(); } });
+});
+
+// ══════════════════════════════════════════════════════════════
+// Grid
+// ══════════════════════════════════════════════════════════════
+// 個体サムネイルの表示サイズ変更（拡大方式・現在の個体群は保持）
+let cellPx = 150;
+function setThumbSize(px){
+  cellPx = parseInt(px)||150;
+  const grid=document.getElementById('grid');
+  if(grid) grid.style.setProperty('--cell', cellPx+'px');
+  for(let i=0;i<9;i++){ const c=document.getElementById('canvas'+i); if(c){ c.width=cellPx; c.height=cellPx; } }
+  const lc=document.querySelector('.left-col');
+  // デスクトップのみカラム幅を追従（スマホ幅では CSS の width:100% を優先）
+  if(lc){ lc.style.width = window.matchMedia('(min-width:901px)').matches ? (cellPx*3 + 14 + 24)+'px' : ''; }
+  if(defs) { try{ render(); }catch(e){} }
+}
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const cell   = document.createElement('div');
+    cell.className = 'cell'; cell.id = 'cell' + i;
+
+    const badge = document.createElement('span');
+    badge.className='badge'; badge.id='badge'+i;
+
+    const star = document.createElement('span');
+    star.className='star'; star.textContent='★';
+
+    const canvas = document.createElement('canvas');
+    canvas.width=150; canvas.height=150; canvas.id='canvas'+i;
+
+    const cpBtn = document.createElement('button');
+    cpBtn.className='copy-btn'; cpBtn.textContent='📋 遺伝子';
+    cpBtn.addEventListener('click', e => { e.stopPropagation(); copyGene(i); });
+
+    const zmBtn = document.createElement('button');
+    zmBtn.className='copy-btn zoom-btn'; zmBtn.textContent='🔍 拡大';
+    zmBtn.addEventListener('click', e => { e.stopPropagation(); openZoom(i); });
+
+    const plBtn = document.createElement('button');
+    plBtn.className='copy-btn play-btn'; plBtn.textContent='▶ 鳴らす'; plBtn.style.display='none';
+    plBtn.addEventListener('click', e => { e.stopPropagation(); playCandidate(i); });
+
+    cell.appendChild(badge);
+    cell.appendChild(star);
+    cell.appendChild(canvas);
+    cell.appendChild(cpBtn);
+    cell.appendChild(zmBtn);
+    cell.appendChild(plBtn);
+    cell.addEventListener('click', () => onSelect(i));
+    grid.appendChild(cell);
+  }
+}
+
+// 音モデル（playSound 定義あり）のときだけ各セルの「▶ 鳴らす」を表示
+function updatePlayButtons(){
+  const show = !!(defs && defs.playSound);
+  document.querySelectorAll('.play-btn').forEach(b=> b.style.display = show ? '' : 'none');
+}
+// 候補の音を鳴らす（育種はしない）
+function playCandidate(i){
+  if(!defs || !defs.playSound || !population[i]) return;
+  Sound.resume();
+  try{ defs.playSound([...population[i]], getParams()); }catch(e){ showToast('音の再生でエラー: '+e.message, true); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 全画面9個体選択モード
+// ══════════════════════════════════════════════════════════════
+// #grid（9セルの候補グリッド）・#hint・#genBadge を、専用の全画面オーバーレイへ
+// 一時的に移動するだけの実装。セルの canvas / クリック処理はそのまま使い回すので、
+// 描画ロジックや育種ロジック（onSelect 等）を複製する必要がない。
+function rememberHome(el){ return { parent: el.parentNode, next: el.nextSibling }; }
+function restoreHome(el, home){
+  if(!home || !home.parent) return;
+  if (home.next && home.next.parentNode === home.parent) home.parent.insertBefore(el, home.next);
+  else home.parent.appendChild(el);
+}
+// 注意：モデルの drawPhenotype / initState / stepState / drawFrame は
+// render() から canvas.width/canvas.height を W,H としてそのまま渡されるため、
+// 多くのモデル（特に自作モデル）は「W=H=150」を前提に座標を組んでいる。
+// 全画面時に canvas 自体の解像度（width/height 属性）を変えてしまうと、
+// モデル側が W,H に比例して描画していない場合に「左上に小さく描画され、
+// 残りが空白になる」といった崩れが起きる。そのため全画面表示では canvas の
+// 解像度は 150×150 のまま変更せず、CSS（width:100%;height:100%）で見た目の
+// サイズだけを拡大する（多少ぼやけるが、全モデルで正しい構図を保てる）。
+function toggleGridFullscreen(){
+  if (gridFsActive) exitGridFullscreen(); else enterGridFullscreen();
+}
+function enterGridFullscreen(){
+  if (gridFsActive || !defs) return;
+  const genBadge = document.getElementById('genBadge');
+  const hint     = document.getElementById('hint');
+  const grid     = document.getElementById('grid');
+  fsHome.genBadge = rememberHome(genBadge);
+  fsHome.hint     = rememberHome(hint);
+  fsHome.grid     = rememberHome(grid);
+
+  const bar = document.getElementById('gridFsBar');
+  bar.prepend(genBadge, hint);
+  document.getElementById('gridFsBody').appendChild(grid);
+  grid.classList.add('fs');
+
+  document.getElementById('gridFsOverlay').classList.add('show');
+  gridFsActive = true;
+
+  // ベストエフォートでブラウザの実全画面（プロジェクタ投影向け）。失敗しても
+  // オーバーレイ自体は画面いっぱいに表示されるので機能上の支障はない。
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if (req) { try { const p = req.call(el); if (p && p.catch) p.catch(()=>{}); } catch(e){} }
+
+  requestAnimationFrame(() => { render(); });
+}
+function exitGridFullscreen(){
+  if (!gridFsActive) return;
+  const genBadge = document.getElementById('genBadge');
+  const hint     = document.getElementById('hint');
+  const grid     = document.getElementById('grid');
+  grid.classList.remove('fs');
+  restoreHome(grid, fsHome.grid);
+  restoreHome(hint, fsHome.hint);
+  restoreHome(genBadge, fsHome.genBadge);
+
+  document.getElementById('gridFsOverlay').classList.remove('show');
+  gridFsActive = false;
+
+  if (document.fullscreenElement || document.webkitFullscreenElement) {
+    const ex = document.exitFullscreen || document.webkitExitFullscreen;
+    if (ex) { try { const p = ex.call(document); if (p && p.catch) p.catch(()=>{}); } catch(e){} }
+  }
+  render();
+}
+
+// ══════════════════════════════════════════════════════════════
+// Mode
+// ══════════════════════════════════════════════════════════════
+function setMode(m) {
+  mode = m; parentAIdx = parentBIdx = null; clearMarks();
+  document.getElementById('btn1p').className = 'mode-btn'+(m==='mutation'?' active':'');
+  document.getElementById('btn2p').className = 'mode-btn'+(m==='crossover'?' active':'');
+  const cx = document.getElementById('cxRow');
+  cx.style.opacity       = m==='crossover'?'1':'.35';
+  cx.style.pointerEvents = m==='crossover'?'auto':'none';
+  updateHint();
+}
+
+// ══════════════════════════════════════════════════════════════
+// Param sliders (dynamic)
+// ══════════════════════════════════════════════════════════════
+function buildParamSliders(defs) {
+  paramDefs = defs;
+  const group = document.getElementById('paramGroup');
+  [...group.querySelectorAll('.slider-row')].forEach(el => el.remove());
+  defs.forEach(p => {
+    if (!(p.id in paramVals)) paramVals[p.id] = p.default;
+    paramVals[p.id] = Math.min(p.max, Math.max(p.min, paramVals[p.id]));
+    const row   = document.createElement('div'); row.className='slider-row';
+    const label=document.createElement('label');label.className='param-label';
+    label.textContent=p.label;label.htmlFor='param_'+p.id;
+    // 名前が長い場合は省略されるため、全文をホバーで参照できるようにする。
+    label.title=p.label+'  ['+p.id+']'+(p.help?'\n'+p.help:'');
+    const lblVar=document.createElement('span');lblVar.className='pvar';
+    lblVar.textContent=p.id;lblVar.title=p.id;
+    const input = document.createElement('input');
+    input.type='range'; input.min=p.min; input.max=p.max;
+    input.step=p.step; input.value=paramVals[p.id]; input.id='param_'+p.id;
+    const val = document.createElement('input');
+    val.type='number'; val.className='slider-num'; val.id='paramval_'+p.id;
+    val.min=p.min; val.max=p.max; val.step=p.step;
+    const dPV=p.step<0.01?3:p.step<0.1?2:p.step<1?1:0;
+    const numStr=(v)=>+(+v).toFixed(dPV);
+    val.value=numStr(paramVals[p.id]);
+    input.addEventListener('input', () => {
+      paramVals[p.id] = parseFloat(input.value);
+      val.value = numStr(paramVals[p.id]);
+    });
+    // 数値欄に直接入力 → スライダーへ反映
+    val.addEventListener('input', () => {
+      const v=parseFloat(val.value); if(!isFinite(v))return;
+      input.value=v; paramVals[p.id]=parseFloat(input.value);
+    });
+    // 確定時に範囲内へ整える
+    val.addEventListener('change', () => {
+      let v=parseFloat(val.value); if(!isFinite(v))v=paramVals[p.id];
+      v=Math.min(p.max,Math.max(p.min,v));
+      input.value=v; paramVals[p.id]=parseFloat(input.value); val.value=numStr(paramVals[p.id]);
+    });
+    row.appendChild(label); row.appendChild(lblVar); row.appendChild(input); row.appendChild(val);
+    if(p.unit){const u=document.createElement('span');u.className='param-unit';u.textContent=p.unit;row.appendChild(u);}
+    if (p.help) {
+      const info=document.createElement('span'); info.className='pinfo'; info.textContent='ⓘ';
+      const tip=document.createElement('span'); tip.className='tip'; tip.textContent=p.help;
+      info.appendChild(tip); row.appendChild(info);
+    }
+    group.appendChild(row);
+  });
+}
+
+function fmtPV(v, p) {
+  const d = p.step < 0.1 ? 2 : p.step < 1 ? 2 : 0;
+  return v.toFixed(d) + (p.unit||'');
+}
+
+function getParams() {
+  const obj = {};
+  paramDefs.forEach(p => {
+    const el = document.getElementById('param_'+p.id);
+    obj[p.id] = el ? parseFloat(el.value) : (paramVals[p.id]??p.default);
+  });
+  return obj;
+}
+
+// ══════════════════════════════════════════════════════════════
+// Code apply
+// ══════════════════════════════════════════════════════════════
+function applyCode(silent) {
+  const code = document.getElementById('codeArea').value;
+  const err  = document.getElementById('errorBox');
+  const ok   = document.getElementById('okBadge');
+  err.className = 'error-box'; err.innerHTML = '';
+  syncGutter();
+
+  // 禁止構文の事前チェック（行番号つき）
+  const banned = lintCode(code);
+  if (banned) { showCodeError(banned.msg, banned.line, code, banned.hint); return; }
+
+  let res;
+  try {
+    const fn  = new Function(code + `
+      return {
+        createInitialGenome: typeof createInitialGenome !== 'undefined' ? createInitialGenome : null,
+        mutateGenome:        typeof mutateGenome        !== 'undefined' ? mutateGenome        : null,
+        drawPhenotype:  typeof drawPhenotype  !== 'undefined' ? drawPhenotype  : null,
+        initState:      typeof initState      !== 'undefined' ? initState      : null,
+        stepState:      typeof stepState      !== 'undefined' ? stepState      : null,
+        drawFrame:      typeof drawFrame      !== 'undefined' ? drawFrame      : null,
+        playSound:      typeof playSound      !== 'undefined' ? playSound      : null,
+        ANIMATED:       typeof ANIMATED       !== 'undefined' ? ANIMATED       : false,
+        PARAM_DEFS:     typeof PARAM_DEFS     !== 'undefined' ? PARAM_DEFS     : null,
+        GENE_RANGES:    typeof GENE_RANGES    !== 'undefined' ? GENE_RANGES    : null,
+        geneGrid:       typeof geneGrid       !== 'undefined' ? geneGrid       : null,
+        DESCRIPTION:    typeof DESCRIPTION    !== 'undefined' ? DESCRIPTION    : null,
+        TITLE:          typeof TITLE          !== 'undefined' ? TITLE          : null,
+      };
+    `);
+    res = fn();
+  } catch(e) {
+    showCodeError(e.message, errorLine(e), code, friendlyHint(e.message));
+    return;
+  }
+  try {
+    if (typeof res.createInitialGenome !== 'function')
+      throw new Error('createInitialGenome() が定義されていません．');
+    if (typeof res.mutateGenome !== 'function')
+      throw new Error('mutateGenome() が定義されていません．');
+    if (res.ANIMATED) {
+      if (typeof res.initState  !== 'function') throw new Error('ANIMATED=true のとき initState() が必要です．');
+      if (typeof res.stepState  !== 'function') throw new Error('ANIMATED=true のとき stepState() が必要です．');
+      if (typeof res.drawFrame  !== 'function') throw new Error('ANIMATED=true のとき drawFrame() が必要です．');
+    } else {
+      if (typeof res.drawPhenotype !== 'function')
+        throw new Error('drawPhenotype() が定義されていません（または ANIMATED=true を付けてください）．');
+    }
+    defs       = res;
+    isAnimated = !!res.ANIMATED;
+    setModelTitle(res.TITLE);
+    renderDescription(res.DESCRIPTION);
+
+    buildParamSliders(
+      (res.PARAM_DEFS && Array.isArray(res.PARAM_DEFS) && res.PARAM_DEFS.length > 0)
+        ? res.PARAM_DEFS : DEFAULT_PARAMS
+    );
+
+    updateAnimUI(isAnimated);
+    updatePlayButtons();
+    resetEvolution();
+
+    if (!silent) {
+      ok.className = 'ok-badge show';
+      setTimeout(() => ok.className = 'ok-badge', 1800);
+    }
+  } catch(e) {
+    showCodeError(e.message, errorLine(e), code, friendlyHint(e.message));
+  }
+}
+
+function loadDefault() {
+  document.getElementById('codeArea').value = CODE_EYECANDY; syncGutter(); applyCode();
+}
+function loadFlock() {
+  document.getElementById('codeArea').value = CODE_FLOCK; syncGutter(); applyCode();
+}
+const CODE_SOUND = `const TITLE = '音の進化';
+// ── 音の進化（8音の短いメロディを「好み」で進化させる）─────────────
+const DESCRIPTION = {
+  summary:'8音の短いメロディを「好み」で進化させます。各セルの「▶ 鳴らす」で聴いて、気に入ったものをクリックで選びます。',
+  gene:'波形・基準の高さ・テンポ・8音の音程（音階の度数）。',
+  phenotype:'ピアノロール（横＝時間8ステップ／縦＝音の高さ）。色は波形の種類。',
+  selection:'実際に聴いて、心地よい・面白いと感じたメロディを選びます。'
+};
+
+// 長調（メジャースケール）の半音オフセット。度数 0〜7 をこの音にマッピング
+const SCALE = [0,2,4,5,7,9,11,12];
+const WAVES = ['sine','triangle','square','sawtooth'];
+const NSTEP = 8;
+
+// 任意：変異の強さをスライダーで調整（mutateGenome の params で受け取る）
+const PARAM_DEFS = [
+  { id:'mut', label:'変異の強さ', min:0, max:1, step:0.05, default:0.45,
+    help:'大きいほど子のメロディが親から大きく変わります。' },
+];
+
+// 遺伝子: [wave(0..3), base(48..72), stepDur(0.10..0.30), d0..d7(各0..7)] 長さ11
+const GENE_RANGES = [[0,3],[48,72],[0.10,0.30],[0,7],[0,7],[0,7],[0,7],[0,7],[0,7],[0,7],[0,7]];
+
+function createInitialGenome(){
+  const g=[ Math.floor(Math.random()*4),
+            55+Math.floor(Math.random()*10),
+            0.14+Math.random()*0.12 ];
+  for(let i=0;i<NSTEP;i++) g.push(Math.floor(Math.random()*8));
+  return g;
+}
+
+function mutateGenome(genome, params){
+  const m = (params && params.mut!=null) ? params.mut : 0.35;
+  const g = genome.slice();
+  if(Math.random()<m*0.5) g[0]=Math.floor(Math.random()*4);                 // 波形
+  if(Math.random()<m) g[1]=Math.max(48,Math.min(72, Math.round(g[1]+(Math.random()*4-2)))); // 基準の高さ
+  if(Math.random()<m) g[2]=Math.max(0.10,Math.min(0.30, g[2]+(Math.random()*0.08-0.04)));    // テンポ
+  for(let i=0;i<NSTEP;i++){                                                  // 各音程
+    if(Math.random()<m){
+      const d=(Math.random()<0.5?-1:1)*(1+Math.floor(Math.random()*2));
+      g[3+i]=Math.max(0,Math.min(7, Math.round(g[3+i]+d)));
+    }
+  }
+  return g;
+}
+
+function noteOf(genome,i){
+  const base=Math.round(genome[1]);
+  const deg=Math.max(0,Math.min(7,Math.round(genome[3+i])));
+  return base + SCALE[deg];
+}
+
+// 実際に音を鳴らす（Sound API を使用。setTimeout は使わず when でまとめて予約）
+function playSound(genome){
+  const w=WAVES[Math.max(0,Math.min(3,Math.round(genome[0])))];
+  const sd=Math.max(0.08,Math.min(0.35,genome[2]));
+  for(let i=0;i<NSTEP;i++){
+    Sound.note(noteOf(genome,i), sd*0.92, 0.5, w, i*sd);
+  }
+}
+
+// ピアノロール（縦＝音の高さ／横＝時間）。色は波形で変える
+function drawPhenotype(ctx, genome, W, H){
+  ctx.fillStyle='#0b1020'; ctx.fillRect(0,0,W,H);
+  const wi=Math.max(0,Math.min(3,Math.round(genome[0])));
+  const hue=[200,150,330,40][wi];
+  const pad=10, gw=W-pad*2, gh=H-pad*2, cw=gw/NSTEP, rh=gh/8;
+  ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;
+  for(let i=0;i<=NSTEP;i++){ ctx.beginPath(); ctx.moveTo(pad+i*cw,pad); ctx.lineTo(pad+i*cw,pad+gh); ctx.stroke(); }
+  for(let r=0;r<=8;r++){ ctx.beginPath(); ctx.moveTo(pad,pad+r*rh); ctx.lineTo(pad+gw,pad+r*rh); ctx.stroke(); }
+  for(let i=0;i<NSTEP;i++){
+    const deg=Math.max(0,Math.min(7,Math.round(genome[3+i])));
+    const x=pad+i*cw+2, y=pad+(7-deg)*rh+2, w=cw-4, h=rh-4;
+    ctx.fillStyle='hsl('+hue+',75%,60%)'; ctx.fillRect(x,y,w,h);
+    ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.fillRect(x,y+h*0.5-1,w,2);
+  }
+  ctx.fillStyle='hsl('+hue+',70%,78%)'; ctx.font='10px monospace'; ctx.textAlign='left';
+  ctx.fillText(WAVES[wi], pad+2, pad+11);
+}
+`;
+
+const CODE_EYECANDY = `const TITLE = 'Eye Candy Evolution';
+// ── 目が離せない映像を育てる（IEC Studio 用・アニメーションモデル）──────
+// 粒子が流れ、漂い、群れ、拍（ビート）に合わせて弾ける。
+// 一番「目が離せない」と思うものを選び続けると、自分がハマる映像の正体が見えてくる。
+//
+// ■ 光過敏への配慮（安全のため、改造するときもここは外さないこと）
+//   - 拍（明るさ・大きさが変わるタイミング）は「実時間」で刻む。アニメ速度スライダーを上げても速くならない
+//   - 拍の周期は MIN_BEAT 秒以上 = 1秒に3回未満
+//   - 背景は暗い色で固定し、画面全体は点滅させない。粒の明るさの揺れも小さく抑える
+//   完全な安全を保証するものではない。発表前に「点滅が苦手な人は見ないで」と一言添える。
+
+const ANIMATED = true;  // アニメーションモード（initState / stepState / drawFrame を使う）
+const MIN_BEAT = 0.35;  // 秒。1/0.35 ≈ 2.9 回/秒 < 3 回/秒
+
+const DESCRIPTION = {
+  summary: '粒子の色・動き・リズム・対称性を進化させ、「目が離せない映像」を育てる。',
+  gene: '20個の数。色（色相・幅・変化速度・彩度）、粒（数・大きさ・形）、動き（速さ・回転・引き寄せ・群れの移動・ふらつき・流れ・風）、拍（周期・弾け方・脈動）、残像、対称の数。',
+  phenotype: '暗い背景の上で動き続ける粒子のアニメーション。画面の端から出た粒は反対側から戻ってくる。',
+  selection: '9個の中で一番目が離せないものを選ぶ。考えずに、目が勝手に行くものを選ぶのがコツ。',
+};
+
+// 遺伝子の番号（読みやすさのため名前を付ける）
+const G = { HUE: 0, HUE_SPREAD: 1, HUE_DRIFT: 2, SAT: 3, COUNT: 4, SPEED: 5, SPIN: 6,
+  PULL: 7, BEAT: 8, BURST: 9, PULSE: 10, SIZE: 11, SHAPE: 12, TRAIL: 13, SYM: 14,
+  MOVE: 15, DART: 16, FLOW: 17, WIND: 18, WIND_DIR: 19 };
+
+const GENE_RANGES = [
+  [0, 360],        // HUE        基本の色相
+  [0, 180],        // HUE_SPREAD 粒ごとの色のばらつき
+  [0, 0.15],       // HUE_DRIFT  色相がゆっくり回る速さ（周/秒, 実時間）
+  [30, 100],       // SAT        彩度
+  [5, 80],         // COUNT      粒の数
+  [0, 1.5],        // SPEED      ゆらぎの強さ
+  [-3, 3],         // SPIN       中心まわりの回転（rad/秒）
+  [-1, 1],         // PULL       群れの中心への引き寄せ（負だと散らばる）
+  [MIN_BEAT, 2.0], // BEAT       拍の周期（秒, 実時間）
+  [0, 1],          // BURST      拍ごとに外へ弾ける強さ
+  [0, 1],          // PULSE      拍ごとに粒が膨らむ強さ
+  [0.01, 0.06],    // SIZE       粒の大きさ（セル幅比）
+  [0, 1],          // SHAPE      形 0〜:丸 0.25〜:四角 0.5〜:三角 0.75〜:線（動く向きに伸びる）
+  [0, 0.9],        // TRAIL      残像の長さ
+  [1, 8],          // SYM        回転対称の数（1 で対称なし）
+  [0, 0.35],       // MOVE       群れの中心が画面を動き回る大きさ
+  [0, 1],          // DART       急に向きを変えてふらふら飛ぶ強さ
+  [0, 1],          // FLOW       見えない川の流れに乗る強さ
+  [0, 1.5],        // WIND       一方向に吹き流される強さ
+  [0, 360],        // WIND_DIR   風の向き（度）
+];
+
+const PARAM_DEFS = [
+  { id: 'mutRate', label: '変異率', min: 0, max: 1, step: 0.01, default: 0.3 },
+  { id: 'mutScale', label: '変異の大きさ', min: 0.2, max: 3, step: 0.1, default: 1.3 },
+];
+
+// 初期個体の「動きのタイプ」。完全ランダムだと似た動きばかりになるので、タイプごとに遺伝子の範囲を絞る。
+// 書いていない遺伝子は QUIET の範囲（ほぼ効かない）か、それにもなければ全範囲からランダム
+const QUIET = { SYM: [1, 1.4], BURST: [0, 0.05], MOVE: [0, 0.03], DART: [0, 0.05], FLOW: [0, 0.05], WIND: [0, 0.05] };
+const ARCHETYPES = [
+  { name: '鼓動',     genes: { SYM: [1, 8], BURST: [0.4, 1], PULL: [0.2, 1] } },  // 縮んで弾ける（円っぽいのはこれだけ）
+  { name: '渦',       genes: { SPIN: [-3, 3], PULL: [-0.1, 0.1], SPEED: [0, 0.2], TRAIL: [0.7, 0.9], SYM: [1, 4] } },
+  { name: '流れ',     genes: { FLOW: [0.6, 1], SPIN: [0, 0], PULL: [0, 0], SPEED: [0, 0.2], SHAPE: [0.75, 1], COUNT: [40, 80], TRAIL: [0.6, 0.9] } },
+  { name: '風',       genes: { WIND: [0.5, 1.5], SPIN: [0, 0], PULL: [0, 0], SPEED: [0.1, 0.5], SHAPE: [0.75, 1], COUNT: [30, 80], SIZE: [0.01, 0.03] } },
+  { name: '群れ移動', genes: { MOVE: [0.2, 0.35], PULL: [0.5, 1], SPIN: [-0.5, 0.5], SPEED: [0.2, 0.6], TRAIL: [0.5, 0.9] } },
+  { name: 'ふらふら', genes: { DART: [0.6, 1], SPIN: [0, 0], PULL: [-0.05, 0.05], SPEED: [0, 0.2], COUNT: [5, 40], TRAIL: [0.3, 0.8] } },
+  { name: '漂う塵',   genes: { SPEED: [1, 1.5], SPIN: [-0.3, 0.3], PULL: [-0.1, 0.1], COUNT: [50, 80], SIZE: [0.01, 0.025], TRAIL: [0.3, 0.6] } },
+  { name: '呼吸',     genes: { BEAT: [1.4, 2], PULSE: [0.7, 1], PULL: [-0.2, 0.2], SPEED: [0, 0.3], COUNT: [5, 20], SIZE: [0.03, 0.06], SHAPE: [0, 0.75] } },
+];
+
+function createInitialGenome() {
+  const a = ARCHETYPES[Math.floor(Math.random() * ARCHETYPES.length)];
+  return GENE_RANGES.map(([mn, mx], i) => {
+    const name = Object.keys(G).find(k => G[k] === i);
+    const [lo, hi] = a.genes[name] || QUIET[name] || [mn, mx];
+    return lo + Math.random() * (hi - lo);
+  });
+}
+
+function mutateGenome(genome, params = {}) {
+  const rate = params.mutRate ?? 0.3;
+  const scale = params.mutScale ?? 1.3;
+  return genome.map((g, i) => {
+    if (Math.random() >= rate) return g;
+    const [mn, mx] = GENE_RANGES[i];
+    const delta = (mx - mn) * (Math.random() * 0.2 - 0.1) * scale;
+    return Math.min(mx, Math.max(mn, g + delta));
+  });
+}
+
+// 拍の位相（0〜1）。実時間で刻むので速度スライダーの影響を受けない
+function beatPhase(genome) {
+  const period = Math.max(MIN_BEAT, genome[G.BEAT]);
+  return (Date.now() / 1000 / period) % 1;
+}
+
+// 群れの中心。MOVE が大きいほど画面を大きく動き回る（8の字に近い軌道）
+function center(state, genome) {
+  const m = genome[G.MOVE], t = state.t;
+  return [m * Math.sin(t * 0.7), m * Math.sin(t * 1.1 + 1)];
+}
+
+function initState(genome, W, H) {
+  const n = Math.round(genome[G.COUNT]);
+  // 画面全体（四角）にばらまく
+  const parts = Array.from({ length: n }, (_, i) => ({ x: Math.random() - 0.5, y: Math.random() - 0.5, vx: 0, vy: 0, k: i / n }));
+  return { parts, t: 0, lastPhase: beatPhase(genome), first: true };
+}
+
+function stepState(state, dt, genome, W, H) {
+  state.t += dt;
+  const ph = beatPhase(genome);
+  const onBeat = ph < state.lastPhase;  // 位相が 1→0 に戻った瞬間 = 拍
+  state.lastPhase = ph;
+  const speed = genome[G.SPEED], spin = genome[G.SPIN], pull = genome[G.PULL], burst = genome[G.BURST];
+  const dart = genome[G.DART], flow = genome[G.FLOW], wind = genome[G.WIND];
+  const wd = genome[G.WIND_DIR] * Math.PI / 180, wx = Math.cos(wd) * wind, wy = Math.sin(wd) * wind;
+  const [cx, cy] = center(state, genome);
+  for (const p of state.parts) {
+    const dx = p.x - cx, dy = p.y - cy, r = Math.hypot(dx, dy) || 1e-6;
+    if (onBeat) { p.vx += (dx / r) * burst * 1.2; p.vy += (dy / r) * burst * 1.2; }
+    // ふらふら：ときどき急にランダムな向きへ飛ぶ
+    if (Math.random() < dart * dt * 2.5) { const a = Math.random() * Math.PI * 2; p.vx = Math.cos(a) * dart * 1.5; p.vy = Math.sin(a) * dart * 1.5; }
+    // 流れ：場所ごとに向きが決まった見えない川（時間でゆっくり形が変わる）
+    const fa = (Math.sin(p.x * 7 + state.t * 0.3) + Math.cos(p.y * 6 - state.t * 0.2)) * Math.PI;
+    p.vx += (Math.cos(fa) * flow * 1.5 + wx * 1.2 - dy * spin - dx * pull * 2 + (Math.random() - 0.5) * speed * 2) * dt;
+    p.vy += (Math.sin(fa) * flow * 1.5 + wy * 1.2 + dx * spin - dy * pull * 2 + (Math.random() - 0.5) * speed * 2) * dt;
+    p.vx *= Math.pow(0.3, dt); p.vy *= Math.pow(0.3, dt);  // 減衰
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    // 四角い画面の端から出たら反対側へ（円い縁を作らない）
+    if (p.x > 0.5) p.x -= 1; else if (p.x < -0.5) p.x += 1;
+    if (p.y > 0.5) p.y -= 1; else if (p.y < -0.5) p.y += 1;
+  }
+}
+
+function drawFrame(ctx, state, genome, W, H) {
+  // 背景は暗い色で固定。残像は半透明で塗り重ねて作る（画面全体の明るさは変えない）
+  ctx.fillStyle = state.first ? '#0b0b12' : 'rgba(11,11,18,' + (1 - genome[G.TRAIL]).toFixed(3) + ')';
+  ctx.fillRect(0, 0, W, H);
+  state.first = false;
+
+  const ph = beatPhase(genome);
+  const env = Math.exp(-ph * 5);  // 拍の直後に強く、すぐ減衰
+  const t = Date.now() / 1000;
+  const hue0 = genome[G.HUE] + t * genome[G.HUE_DRIFT] * 360;
+  const sat = genome[G.SAT];
+  const light = 55 + 8 * env;     // 明るさの揺れは ±8% 程度に抑える
+  const size = genome[G.SIZE] * W * (1 + genome[G.PULSE] * env);
+  const sym = Math.round(genome[G.SYM]);
+  const shape = genome[G.SHAPE];
+
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.lineCap = 'round';
+  for (const p of state.parts) {
+    const col = 'hsl(' + ((hue0 + p.k * genome[G.HUE_SPREAD]) % 360).toFixed(1) + ',' + sat.toFixed(0) + '%,' + light.toFixed(0) + '%)';
+    ctx.fillStyle = col; ctx.strokeStyle = col;
+    for (let s = 0; s < sym; s++) {
+      const a = (s / sym) * Math.PI * 2, c = Math.cos(a), sn = Math.sin(a);
+      const x = (p.x * c - p.y * sn) * W, y = (p.x * sn + p.y * c) * H;
+      ctx.beginPath();
+      if (shape < 0.25) ctx.arc(x, y, size, 0, Math.PI * 2);
+      else if (shape < 0.5) ctx.rect(x - size, y - size, size * 2, size * 2);
+      else if (shape < 0.75) { ctx.moveTo(x, y - size * 1.2); ctx.lineTo(x + size, y + size * 0.8); ctx.lineTo(x - size, y + size * 0.8); ctx.closePath(); }
+      else {
+        // 線：動いている向きに尾を引く
+        const vx = (p.vx * c - p.vy * sn) * W * 0.12, vy = (p.vx * sn + p.vy * c) * H * 0.12;
+        ctx.lineWidth = Math.max(1, size * 0.6);
+        ctx.moveTo(x, y); ctx.lineTo(x - vx - 0.001, y - vy); ctx.stroke();
+        continue;
+      }
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
+`;
+
+const MODELS = {
+  eyecandy: CODE_EYECANDY,
+  static:  CODE_STATIC,
+  flock:   CODE_FLOCK,
+  stained: CODE_STAINED,
+  softbody:  CODE_SOFTBODY,
+  mathart: CODE_MATHART,
+  face:    CODE_FACE,
+  sound:   CODE_SOUND,
+};
+function loadFromSelect(key) {
+  const sel = document.getElementById('modelSelect'); if (sel) sel.value = '';
+  if (!key || !MODELS[key]) return;
+  paramVals = {};   // 組み込みモデルは自前の既定値を持つので，前のモデルの値を引き継がない
+  document.getElementById('codeArea').value = MODELS[key]; syncGutter(); applyCode();
+}
+
+function updateAnimUI(animated) {
+  const ctrl  = document.getElementById('animCtrl');
+  const badge = document.getElementById('animBadge');
+  ctrl.classList.toggle('show', animated);
+  badge.classList.toggle('show', animated);
+  if (!animated && animPaused) { animPaused = false; updatePauseBtn(); }
+}
+
+// ══════════════════════════════════════════════════════════════
+// Evolution
+// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// 系統（選んだ親の履歴）
+// ══════════════════════════════════════════════════════════════
+function renderDescription(desc){
+  const box=document.getElementById('descBox'); if(!box) return;
+  const E=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if(!desc){ box.className='desc-box empty'; box.innerHTML=''; return; }
+  box.className='desc-box';
+  if(typeof desc==='string'){ box.innerHTML=E(desc).replace(/\n/g,'<br>'); return; }
+  let h='';
+  if(modelTitle) h+='<div class="desc-title" style="font-weight:700;color:var(--accent);margin-bottom:4px">'+E(modelTitle)+'</div>';
+  if(desc.summary) h+='<div class="desc-sum">'+E(desc.summary)+'</div>';
+  const row=(k,v)=> v?('<div class="desc-row"><span class="desc-k">'+k+'</span><span class="desc-v">'+E(v)+'</span></div>'):'';
+  // IEC は人が選ぶので「適応度」の代わりに「選び方」。fitness しか無い場合もそこに表示。
+  h+=row('遺伝子',desc.gene)+row('表現型',desc.phenotype)+row('選び方',desc.selection||desc.fitness);
+  if(!h) h=E(JSON.stringify(desc));
+  box.innerHTML=h;
+}
+// ── 再現性のためのシード付き乱数（方式A）── 変異/交叉の Math.random をシード付きに差し替え、各世代直前に (seed, gen) で再seed
+const __nativeRandom = Math.random;
+let __runSeed = 0, __rng = __nativeRandom;
+function mulberry32(a){ return function(){ a|=0; a=(a+0x6D2B79F5)|0; let t=Math.imul(a^(a>>>15),1|a); t=(t+Math.imul(t^(t>>>7),61|t))^t; return ((t^(t>>>14))>>>0)/4294967296; }; }
+function seedForSetup(){ __rng = mulberry32(__runSeed>>>0); }
+function seedForGen(g){ __rng = mulberry32(((__runSeed>>>0) + (g+1)*2654435761)>>>0); }
+function newRunSeed(){ __runSeed = ((Date.now()>>>0) ^ ((Math.floor(performance.now()*1000))>>>0)) >>> 0; }
+Math.random = function(){ return __rng(); };
+
+// ── 各世代の全9個体を記録（方式B）── IEC は軽いので常時記録し、同梱ビュワーで各世代を再生できるようにする
+const IEC_FRAME_MAX = 5000;
+let frameRec = { lines:[], truncated:false };
+function resetFrameRec(){ frameRec.lines=[]; frameRec.truncated=false; }
+function captureGenFrame(chosen){
+  if(!population||!population.length) return;
+  if(frameRec.lines.length>=IEC_FRAME_MAX){ frameRec.truncated=true; return; }
+  frameRec.lines.push(JSON.stringify({ tick: generation, state: { population: population.map(g=>Array.from(g)), chosen: (chosen==null?null:chosen) } }));
+}
+
+function recordLineage(genome){
+  if(!genome) return;
+  // Continuing from an earlier ancestor starts a NEW branch: the branch we were on is kept
+  // in lineageArchive rather than being cut off at the rewind point.
+  if(pendingBranch){
+    const src = pendingBranch.branch<0 ? lineage : (lineageArchive[pendingBranch.branch]||lineage);
+    const at  = pendingBranch.at;
+    const continuingSameTip = (pendingBranch.branch<0 && at===lineage.length-1);
+    if(!continuingSameTip){
+      if(lineage.length) archiveBranch(lineage);
+      lineage = src.slice(0, at+1).map(e=>({gen:e.gen, genome:[...e.genome]}));
+    }
+    pendingBranch = null;
+  }
+  lineage.push({ gen: generation, genome: [...genome] });
+  if(lineage.length>60) lineage.shift();
+  if(showLineage) renderLineage();
+}
+function archiveBranch(entries){
+  lineageArchive.push(entries.map(e=>({gen:e.gen, genome:[...e.genome]})));
+  while(lineageArchive.length>LINEAGE_ARCHIVE_MAX) lineageArchive.shift();
+}
+function toggleLineage(){
+  const el=document.getElementById('lineageToggle');
+  showLineage=!!(el&&el.checked);
+  const strip=document.getElementById('lineageStrip');
+  if(strip) strip.style.display=showLineage?'flex':'none';
+  if(showLineage) renderLineage();
+}
+function renderGenomeThumb(ctx, g, W, H){
+  try{
+    if(isAnimated && typeof defs.initState==='function' && typeof defs.drawFrame==='function'){
+      const st=defs.initState([...g], W, H); defs.drawFrame(ctx, st, g, W, H);
+    } else if(typeof defs.drawPhenotype==='function'){
+      defs.drawPhenotype(ctx, g, W, H);
+    }
+  }catch(_){ ctx.fillStyle='#fee2e2'; ctx.fillRect(0,0,W,H); }
+}
+function renderLineage(){
+  const strip=document.getElementById('lineageStrip');
+  if(!strip) return;
+  strip.innerHTML='';
+  if(!defs || (!lineage.length && !lineageArchive.length)){
+    strip.innerHTML='<span style="font-family:IBM Plex Mono,monospace;font-size:.6rem;color:var(--muted)">まだ履歴がありません（気に入った個体を選ぶと、その親が記録されます）</span>';
+    return;
+  }
+  const SZ=48;
+  const row=(entries, branchIdx, isCur)=>{
+    const r=document.createElement('div');
+    r.className='lineage-row'+(isCur?' cur-row':' past-row');
+    const tag=document.createElement('span'); tag.className='lg-tag';
+    tag.textContent = isCur ? '現在' : '過去';
+    r.appendChild(tag);
+    entries.forEach((entry,idx)=>{
+      if(idx>0){ const ar=document.createElement('span'); ar.className='lineage-arrow'; ar.textContent='→'; r.appendChild(ar); }
+      const item=document.createElement('div');
+      const atHere = pendingBranch && pendingBranch.branch===branchIdx && pendingBranch.at===idx;
+      item.className='lineage-item'
+        + ((isCur && idx===entries.length-1 && !pendingBranch)?' cur':'')
+        + (atHere?' pending':'');
+      item.title='この祖先から育種を続ける（いまの系統は残ります）';
+      const cv=document.createElement('canvas'); cv.width=SZ; cv.height=SZ;
+      renderGenomeThumb(cv.getContext('2d'), entry.genome, SZ, SZ);
+      const lbl=document.createElement('div'); lbl.className='lg-lbl'; lbl.textContent='世代'+entry.gen;
+      item.appendChild(cv); item.appendChild(lbl);
+      item.onclick=()=>reseedFromLineage(branchIdx, idx);
+      r.appendChild(item);
+    });
+    return r;
+  };
+  lineageArchive.forEach((entries,i)=> strip.appendChild(row(entries, i, false)));
+  if(lineage.length) strip.appendChild(row(lineage, -1, true));
+  strip.scrollLeft=strip.scrollWidth;   // 最新を表示
+}
+function reseedFromLineage(branchIdx, idx){
+  const src = branchIdx<0 ? lineage : lineageArchive[branchIdx];
+  if(!defs || !src || idx<0 || idx>=src.length) return;
+  const g=src[idx].genome;
+  // The existing branch is left intact. A new branch is opened only once the user makes
+  // the next selection (see recordLineage).
+  pendingBranch = {branch:branchIdx, at:idx};
+  generation=src[idx].gen;
+  stopAnimations();
+  const params=getParams();
+  seedForGen(generation);
+  population=Array.from({length:9},(_,j)=> j===4 ? [...g] : defs.mutateGenome(g, params));
+  parentAIdx=parentBIdx=null; clearMarks();
+  captureGenFrame(null);
+  render();
+  const c4=document.getElementById('cell4'); if(c4) c4.classList.add('show-star');
+  updateHint(); renderLineage();
+}
+
+function resetEvolution() {
+  if(typeof closeZoom==='function') closeZoom();
+  stopAnimations();
+  newRunSeed(); seedForSetup(); resetFrameRec();   // 方式A: 新シードを決めて記録／方式B: フレームをクリア
+  generation = 0; parentAIdx = parentBIdx = null; clearMarks();
+  lineage = []; lineageArchive = []; pendingBranch = null; if(showLineage) renderLineage();
+  population = Array.from({length:9}, () => defs.createInitialGenome());
+  captureGenFrame(null);                            // 第0世代の初期個体群
+  render();
+}
+
+function onSelect(i) {
+  if (!defs) return;
+  stopAnimations();
+  const params = getParams();
+  if (mode === 'mutation') {
+    flashCell(i,'a');
+    const parent = population[i];
+    seedForGen(generation);
+    population = Array.from({length:9}, (_,j) =>
+      j===4 ? [...parent] : defs.mutateGenome(parent, params)
+    );
+    generation++; clearMarks();
+    recordLineage(parent);
+    captureGenFrame(i);
+    document.getElementById('cell4').classList.add('show-star');
+    render(); updateHint();
+  } else {
+    if (parentAIdx === null) {
+      parentAIdx = i; clearMarks(); flashCell(i,'a');
+      document.getElementById('cell'+i).classList.add('parent-a');
+      document.getElementById('badge'+i).textContent='A';
+      updateHint();
+    } else if (i === parentAIdx) {
+      parentAIdx = null; clearMarks(); updateHint();
+    } else if (parentBIdx === null) {
+      parentBIdx = i; flashCell(i,'b');
+      document.getElementById('cell'+i).classList.add('parent-b');
+      document.getElementById('badge'+i).textContent='B';
+      updateHint();
+      setTimeout(() => generateCrossover(params), 340);
+    }
+  }
+}
+
+function generateCrossover(params) {
+  const gA=population[parentAIdx], gB=population[parentBIdx];
+  const cxType=document.getElementById('cxType').value;
+  seedForGen(generation);
+  population = Array.from({length:9}, (_,j) => {
+    const child=crossover(gA,gB,cxType);
+    return j===4 ? child : defs.mutateGenome(child, params);
+  });
+  generation++; parentAIdx=parentBIdx=null; clearMarks();
+  recordLineage(population[4]);
+  captureGenFrame(null);
+  document.getElementById('cell4').classList.add('show-star');
+  render(); updateHint();
+}
+
+function crossover(gA, gB, type) {
+  const n=gA.length;
+  if (type==='uniform') return gA.map((g,i)=>Math.random()<0.5?g:gB[i]);
+  if (type==='onepoint') {
+    const pt=1+Math.floor(Math.random()*(n-1));
+    return gA.map((g,i)=>i<pt?g:gB[i]);
+  }
+  let p1=1+Math.floor(Math.random()*(n-2));
+  let p2=Math.min(n-1, p1+1+Math.floor(Math.random()*(n-p1-1)));
+  return gA.map((g,i)=>(i>=p1&&i<p2)?gB[i]:g);
+}
+
+// ══════════════════════════════════════════════════════════════
+// Render (static or animated)
+// ══════════════════════════════════════════════════════════════
+function render() {
+  document.getElementById('genBadge').textContent = `世代: ${generation}`;
+  const ml = mode==='mutation'?'変異のみ（1親）':'交叉＋変異（2親）';
+  document.getElementById('statsBox').innerHTML =
+    `<span style="color:var(--muted)">世代 </span><span class="sv">${generation}</span>` +
+    `&emsp;<span style="color:var(--muted)">個体数 </span><span class="sv">9</span>` +
+    `&emsp;<span style="color:var(--muted)">モード </span><span class="sv">${ml}</span>` +
+    `&emsp;<span style="color:var(--muted)">表示 </span><span class="sv">${isAnimated?'アニメ':'静止'}</span>`;
+  renderGenomePanel();
+
+  stopAnimations();
+
+  if (isAnimated) {
+    // アニメーションモード
+    for (let i = 0; i < 9; i++) {
+      const canvas=document.getElementById('canvas'+i);
+      const ctx=canvas.getContext('2d');
+      const W=canvas.width, H=canvas.height;
+      try {
+        // 前のモデルの描画を持ち越さない（drawFrame/drawPhenotype が全面を塗るとは限らない）
+        ctx.clearRect(0,0,W,H);
+        cellStates[i] = defs.initState([...population[i]], W, H);
+        defs.drawFrame(ctx, cellStates[i], population[i], W, H);
+      } catch(e) { drawError(ctx, W, H); }
+    }
+    startAnimations();
+  } else {
+    // 静止モード
+    for (let i = 0; i < 9; i++) {
+      const canvas=document.getElementById('canvas'+i);
+      const ctx=canvas.getContext('2d');
+      try {
+        // 前のモデルの描画を持ち越さない（drawFrame/drawPhenotype が全面を塗るとは限らない）
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        defs.drawPhenotype(ctx, population[i], canvas.width, canvas.height);
+      } catch(e) { drawError(ctx, canvas.width, canvas.height); }
+    }
+  }
+}
+
+function drawError(ctx, W, H) {
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='rgba(248,113,113,.1)'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#f87171'; ctx.font='9px IBM Plex Mono,monospace';
+  ctx.fillText('描画エラー',8,72);
+}
+
+// ══════════════════════════════════════════════════════════════
+// Animation engine（マスターRAFループ 1本で9セル同期駆動）
+// ══════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+// 拡大表示（フォーカスした個体を大きく・動かして見る）
+// ══════════════════════════════════════════════════════════════
+let zoomIdx=null, zoomState=null, zoomHandle=null, zoomLastTs=null, zoomPlaying=true;
+function zoomErr(ctx,W,H){ ctx.clearRect(0,0,W,H); ctx.fillStyle='#f87171'; ctx.font='13px IBM Plex Mono,monospace'; ctx.fillText('描画エラー',14,26); }
+function stopZoomLoop(){ if(zoomHandle!==null){ cancelAnimationFrame(zoomHandle); zoomHandle=null; } zoomLastTs=null; }
+function getZoomSpeed(){ return parseFloat(document.getElementById('zoomSpeed').value)||1.0; }
+function updateZoomSpeed(){ const v=getZoomSpeed(); document.getElementById('zoomSpeedVal').textContent=(v<1?v.toFixed(2):v.toFixed(1))+'×'; }
+function openZoom(i){
+  if(!defs || !population[i]) return;
+  zoomIdx=i;
+  document.getElementById('zoomOverlay').classList.add('show');
+  document.getElementById('zoomTitle').textContent='個体 #'+(i+1)+' の拡大表示'+(i===4?'（★中央）':'');
+  const cv=document.getElementById('zoomCanvas'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  document.getElementById('zoomCtrlAnim').style.display = isAnimated ? 'flex' : 'none';
+  const psBtn=document.getElementById('zoomPlaySound'); if(psBtn) psBtn.style.display = (defs && defs.playSound) ? '' : 'none';
+  stopZoomLoop();
+  if(isAnimated && defs.initState && defs.stepState && defs.drawFrame){
+    try{ zoomState=defs.initState([...population[i]], W, H); defs.drawFrame(ctx, zoomState, population[i], W, H); }
+    catch(e){ zoomErr(ctx,W,H); }
+    zoomPlaying=true; document.getElementById('zoomPlayBtn').textContent='⏸ 停止';
+    zoomLastTs=null; zoomHandle=requestAnimationFrame(zoomLoop);
+  } else {
+    zoomState=null;
+    try{ ctx.clearRect(0,0,W,H); defs.drawPhenotype(ctx, population[i], W, H); }
+    catch(e){ zoomErr(ctx,W,H); }
+  }
+}
+function closeZoom(){
+  stopZoomLoop(); zoomIdx=null; zoomState=null;
+  document.getElementById('zoomOverlay').classList.remove('show');
+}
+function zoomPlaySound(){ if(zoomIdx!==null) playCandidate(zoomIdx); }
+function toggleZoomPlay(){
+  zoomPlaying=!zoomPlaying;
+  document.getElementById('zoomPlayBtn').textContent = zoomPlaying ? '⏸ 停止' : '▶ 再生';
+  if(zoomPlaying && zoomIdx!==null){ zoomLastTs=null; if(zoomHandle===null) zoomHandle=requestAnimationFrame(zoomLoop); }
+}
+function zoomLoop(ts){
+  if(zoomIdx===null || !isAnimated || !defs){ zoomHandle=null; return; }
+  const cv=document.getElementById('zoomCanvas'), ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+  if(zoomPlaying && zoomLastTs!==null && zoomState){
+    const rawDt=(ts-zoomLastTs)*0.001, dt=Math.min(rawDt,0.05), sdt=dt*getZoomSpeed();
+    try{ defs.stepState(zoomState, sdt, population[zoomIdx], W, H); defs.drawFrame(ctx, zoomState, population[zoomIdx], W, H); }catch(e){}
+  }
+  zoomLastTs = zoomPlaying ? ts : null;
+  zoomHandle = requestAnimationFrame(zoomLoop);
+}
+function selectFromZoom(){ const i=zoomIdx; closeZoom(); if(i!==null) onSelect(i); }
+
+function startAnimations() {
+  if (!isAnimated || !defs) return;
+  lastMasterTs = null;
+  masterHandle = requestAnimationFrame(masterLoop);
+}
+
+function stopAnimations() {
+  if (masterHandle !== null) {
+    cancelAnimationFrame(masterHandle);
+    masterHandle = null;
+  }
+  lastMasterTs = null;
+}
+
+function masterLoop(ts) {
+  if (!isAnimated || !defs) { masterHandle = null; return; }
+
+  if (!animPaused && lastMasterTs !== null) {
+    const rawDt = (ts - lastMasterTs) * 0.001;
+    const dt    = Math.min(rawDt, 0.05);   // 最大 50ms でキャップ
+    const speed = getAnimSpeed();
+    const scaledDt = dt * speed;
+
+    for (let i = 0; i < 9; i++) {
+      if (!cellStates[i]) continue;
+      const canvas = document.getElementById('canvas'+i);
+      const ctx    = canvas.getContext('2d');
+      const W=canvas.width, H=canvas.height;
+      try {
+        defs.stepState(cellStates[i], scaledDt, population[i], W, H);
+        defs.drawFrame(ctx, cellStates[i], population[i], W, H);
+      } catch(e) { /* セルのエラーは他に影響しない */ }
+    }
+  }
+
+  // ポーズ中は lastMasterTs をリセットして再開時のスパイクを防ぐ
+  lastMasterTs = animPaused ? null : ts;
+  masterHandle = requestAnimationFrame(masterLoop);
+}
+
+function getAnimSpeed() {
+  return parseFloat(document.getElementById('animSpeedSlider').value) || 1.0;
+}
+function updateAnimSpeed() {
+  const v = getAnimSpeed();
+  document.getElementById('animSpeedVal').textContent = (v<1?v.toFixed(2):v.toFixed(1)) + '×';
+}
+function togglePause() {
+  animPaused = !animPaused;
+  updatePauseBtn();
+}
+function updatePauseBtn() {
+  const btn = document.getElementById('pauseBtn');
+  if (animPaused) {
+    btn.textContent = '▶ 再生'; btn.className = 'pause-btn paused';
+  } else {
+    btn.textContent = '⏸ 停止'; btn.className = 'pause-btn';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// Genome editor
+// ══════════════════════════════════════════════════════════════
+function toggleGE() {
+  const hdr=document.getElementById('geHdr');
+  const body=document.getElementById('geBody');
+  const arrow=document.getElementById('geArrow');
+  const open=body.classList.toggle('open');
+  hdr.classList.toggle('open',open);
+  arrow.textContent=open?'▼':'▶';
+}
+
+function copyGene(i) {
+  const g=population[i]; if(!g) return;
+  const json=fmtGenome(g);
+  const body=document.getElementById('geBody');
+  if (!body.classList.contains('open')) toggleGE();
+  document.getElementById('genomeTa').value=json;
+  navigator.clipboard.writeText(json)
+    .then(()=>showToast(`セル${i+1} の遺伝子をコピーしました`))
+    .catch(()=>showToast('遺伝子エディタに読み込みました'));
+}
+
+function importGenome(expand) {
+  const text=document.getElementById('genomeTa').value.trim();
+  if (!text) { showToast('エディタが空です',true); return; }
+  try {
+    const g=JSON.parse(text);
+    if (!Array.isArray(g)||!g.every(v=>typeof v==='number'))
+      throw new Error('数値配列が必要です');
+    if (expand && defs) {
+      stopAnimations();
+      const params=getParams();
+      seedForGen(generation);
+      population=Array.from({length:9},(_,j)=>
+        j===4?[...g]:defs.mutateGenome([...g],params)
+      );
+      generation++; clearMarks();
+      captureGenFrame(null);
+      document.getElementById('cell4').classList.add('show-star');
+      render(); showToast('遺伝子を親として全体に展開しました');
+    } else {
+      population[4]=[...g]; clearMarks();
+      document.getElementById('cell4').classList.add('show-star');
+      if (isAnimated && defs) {
+        const canvas=document.getElementById('canvas4');
+        cellStates[4]=defs.initState([...g],canvas.width,canvas.height);
+      } else if (defs) {
+        const canvas=document.getElementById('canvas4');
+        const ctx=canvas.getContext('2d');
+        try { defs.drawPhenotype(ctx,population[4],canvas.width,canvas.height); }
+        catch(e) { drawError(ctx,canvas.width,canvas.height); }
+      }
+      showToast('中央セルに遺伝子を配置しました');
+    }
+  } catch(e) { showToast('⚠ JSONエラー: '+e.message,true); }
+}
+
+function clearGE() { document.getElementById('genomeTa').value=''; }
+
+function fmtGenome(g) {
+  return JSON.stringify(g.map(v=>parseFloat(v.toFixed(4))));
+}
+
+// ══════════════════════════════════════════════════════════════
+// UI helpers
+// ══════════════════════════════════════════════════════════════
+function clearMarks() {
+  for (let i=0;i<9;i++) {
+    document.getElementById('cell'+i)
+      .classList.remove('parent-a','parent-b','show-star','flash-a','flash-b');
+    document.getElementById('badge'+i).textContent='';
+  }
+}
+function flashCell(i,which) {
+  const cell=document.getElementById('cell'+i);
+  const cls=which==='a'?'flash-a':'flash-b';
+  cell.classList.remove('flash-a','flash-b'); void cell.offsetWidth;
+  cell.classList.add(cls); setTimeout(()=>cell.classList.remove(cls),420);
+}
+function updateHint() {
+  const el=document.getElementById('hint');
+  if (mode==='mutation') {
+    el.innerHTML='気に入った個体をクリックして次世代を生成　<span class="hl-a">★ = 前世代の選択親</span>';
+  } else if (parentAIdx===null) {
+    el.innerHTML='<span class="hl-a">親 A</span> にしたい個体をクリック';
+  } else {
+    el.innerHTML='<span class="hl-a">親 A</span> 選択済み →　<span class="hl-b">親 B</span> にしたい別の個体をクリック';
+  }
+}
+
+let toastTimer=null;
+function copyCurrentCode(){
+  copyToClipboard(document.getElementById('codeArea').value, '現在のコードをコピーしました');
+}
+// ── クリップボード書き込み（環境差に強い多段フォールバック） ──
+// 貼り付け先（生成AIの入力欄など）が rich text エディタの場合、text/plain だけだと
+// 長文の取りこぼし・途中切れが起きる実装があるため、text/html も同時に書き込む。
+// 改行は CRLF に正規化する（Windows のクリップボード規約に合わせる）。
+let lastPromptText='';
+function clipNormalizeNewlines(s){ return String(s).replace(/\r\n?|\n/g,'\r\n'); }
+function clipEscapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function clipBuildHtml(text){
+  return '<div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap">'
+       + clipEscapeHtml(text).replace(/\r\n?|\n/g,'<br>') + '</div>';
+}
+function copyToClipboard(text, okMsg){
+  lastPromptText = text;
+  const plain = clipNormalizeNewlines(text);
+  const ok=()=>showToast(okMsg||'コピーしました');
+  const legacy=()=>{
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=plain; ta.style.position='fixed'; ta.style.top='-1000px'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const done=document.execCommand('copy'); document.body.removeChild(ta);
+      done ? ok() : showManualCopyPanel(text);
+    }catch(e){ showManualCopyPanel(text); }
+  };
+  const writeTextPath=()=>{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(plain).then(ok).catch(legacy);
+    } else { legacy(); }
+  };
+  try{
+    if(navigator.clipboard && navigator.clipboard.write && typeof ClipboardItem!=='undefined'){
+      const item=new ClipboardItem({
+        'text/plain': new Blob([plain],{type:'text/plain'}),
+        'text/html' : new Blob([clipBuildHtml(text)],{type:'text/html'})
+      });
+      navigator.clipboard.write([item]).then(ok).catch(writeTextPath);
+      return;
+    }
+  }catch(e){}
+  writeTextPath();
+}
+// 直前にコピーしたプロンプトを .txt で保存（クリップボードを経由せず添付で渡す用）
+function savePromptFile(){
+  if(!lastPromptText){ showToast('先に ✨ / ✏️ / 📖 などのプロンプトボタンを押してください', true); return; }
+  const blob=new Blob([clipNormalizeNewlines(lastPromptText)],{type:'text/plain;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=modelSlug('iec_model')+'_prompt.txt';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showToast('プロンプトを .txt で保存しました（生成AIに添付してください）');
+}
+// クリップボードが一切使えない環境向け：手動コピー用パネル
+function showManualCopyPanel(text){
+  const old=document.getElementById('manualCopyPanel'); if(old) old.remove();
+  const wrap=document.createElement('div'); wrap.id='manualCopyPanel';
+  wrap.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const box=document.createElement('div');
+  box.style.cssText='background:var(--surface,#fff);color:var(--text,#1e293b);border:1px solid var(--border,#d4d9e3);border-radius:10px;padding:14px;max-width:860px;width:100%;display:flex;flex-direction:column;gap:10px;box-shadow:0 10px 40px rgba(0,0,0,.25)';
+  const msg=document.createElement('div');
+  msg.textContent='自動コピーができませんでした。下の内容を全選択してコピーするか、📄 .txt で保存して生成AIに添付してください。';
+  msg.style.cssText='font-size:13px;line-height:1.6';
+  const ta=document.createElement('textarea'); ta.value=text; ta.readOnly=true;
+  ta.style.cssText='width:100%;height:46vh;box-sizing:border-box;background:var(--code-bg,#f8fafc);color:var(--text,#1e293b);border:1px solid var(--border,#d4d9e3);border-radius:6px;padding:8px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;white-space:pre';
+  const row=document.createElement('div'); row.style.cssText='display:flex;gap:8px;justify-content:flex-end';
+  const bSave=document.createElement('button'); bSave.textContent='📄 .txt で保存';
+  const bClose=document.createElement('button'); bClose.textContent='閉じる';
+  for(const b of [bSave,bClose]) b.style.cssText='background:var(--panel,#f0f2f6);color:var(--text,#1e293b);border:1px solid var(--border,#d4d9e3);border-radius:6px;padding:6px 12px;cursor:pointer;font-size:13px';
+  bSave.onclick=()=>{ lastPromptText=text; savePromptFile(); };
+  bClose.onclick=()=>wrap.remove();
+  wrap.onclick=(e)=>{ if(e.target===wrap) wrap.remove(); };
+  row.appendChild(bSave); row.appendChild(bClose);
+  box.appendChild(msg); box.appendChild(ta); box.appendChild(row);
+  wrap.appendChild(box); document.body.appendChild(wrap);
+  ta.focus(); ta.select();
+}
+// テキスト（```コードブロック``` を含んでいてもよい）からコードを取り出してコード欄へ入れ、適用する
+function applyPastedText(text){
+  if(!text || !text.trim()){ showToast('コードが見つかりませんでした', true); return false; }
+  let code=text;
+  const blocks=[...text.matchAll(/```(?:javascript|js)?\s*\n([\s\S]*?)```/gi)];
+  if(blocks.length){ code=blocks[blocks.length-1][1]; }
+  else { code=text.replace(/^\s*```[a-zA-Z]*\s*\n?/,'').replace(/\n?```\s*$/,''); }
+  code=code.trim();
+  if(!code){ showToast('コードが見つかりませんでした', true); return false; }
+  const ta=document.getElementById('codeArea');
+  ta.value=code; if(typeof syncGutter==='function') syncGutter();
+  applyCode();
+  return true;
+}
+// クリップボードの自動読み取りが使えない環境（Android Chrome の file:// 等）向けの手動貼り付けフォールバック
+function manualPasteFallback(prefix){
+  const body=document.getElementById('codeBody');
+  if(body && !body.classList.contains('open')) toggleCode();   // コード欄を開く
+  const ta=document.getElementById('codeArea');
+  ta.focus();
+  showToast((prefix||'自動で貼り付けできませんでした。')+'コード欄を長押し→「貼り付け」すると自動で適用します（または貼り付け後に ▶ 適用）。', true);
+  const onPaste=()=>{ setTimeout(()=>applyPastedText(ta.value), 30); };  // 貼り付け完了後に取り込む
+  ta.addEventListener('paste', onPaste, {once:true});
+}
+async function pasteAndApply(){
+  let text=null;
+  try{
+    if(!navigator.clipboard || !navigator.clipboard.readText) throw new Error('clipboard read unavailable');
+    text=await navigator.clipboard.readText();
+  }catch(e){ return manualPasteFallback(); }
+  if(!text || !text.trim()){ return manualPasteFallback('クリップボードが空でした。'); }
+  applyPastedText(text);
+}
+function showToast(msg,isBad=false) {
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast'+(isBad?' bad':'')+' show';
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.className='toast',2400);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 遺伝子パネル（定義 + 中央個体）
+// ══════════════════════════════════════════════════════════════
+function renderGenomePanel() {
+  const box = document.getElementById('geneBox'); if (!box) return;
+  if (!defs) { box.innerHTML = '<div class="gene-empty">—</div>'; return; }
+  const g = population[4] || (defs.createInitialGenome && defs.createInitialGenome());
+  const len = g ? g.length : 0;
+  const ranges = (defs.GENE_RANGES && Array.isArray(defs.GENE_RANGES)) ? defs.GENE_RANGES : null;
+  // 定義
+  let html = '<div class="gene-def">';
+  html += '<div><b>遺伝子の定義</b></div>';
+  html += '<div style="margin-top:3px"><span class="pill">型</span>実数の配列（数値）</div>';
+  html += '<div style="margin-top:2px"><span class="pill">長さ</span>' + len + ' 個' +
+          (ranges ? '　<span class="pill">範囲</span>各遺伝子ごとに GENE_RANGES で指定' : '') + '</div>';
+  html += '<div style="margin-top:5px;color:var(--text)">クリックで選んだ個体を親に、変異／交叉で次世代が作られます。下は現在の<b>中央個体（★）</b>の遺伝子です。</div>';
+  html += '</div>';
+  // 中央個体：モデルが geneGrid を持てば「グリッド表示」、無ければチップ表示
+  let gi = null;
+  if (g && typeof defs.geneGrid === 'function') { try { gi = defs.geneGrid(g); } catch(e) { gi = null; } }
+  if (gi && Array.isArray(gi.grids)) {
+    html += '<div class="gene-best">';
+    if (Array.isArray(gi.legend) && gi.legend.length) {
+      html += '<div class="gene-legend">';
+      gi.legend.forEach(function(L){
+        html += '<span class="lg"><span class="sw" style="background:' + escHtml(L.bg||'#fff') + '"></span>' + escHtml(L.name||'') + '</span>';
+      });
+      html += '</div>';
+    }
+    gi.grids.forEach(function(grid){
+      const cols = grid.cols || gi.cols || 5;
+      html += '<div class="gene-grid-wrap"><div class="gene-grid-label">' + escHtml(grid.label||'') + '</div>';
+      html += '<div class="gene-grid" style="grid-template-columns:repeat(' + cols + ',1fr)">';
+      (grid.cells||[]).forEach(function(cell){
+        html += '<span class="gc" style="background:' + escHtml(cell.bg||'#ffffff') + ';color:' + escHtml(cell.fg||'#1e293b') + '">' + escHtml(cell.text!=null?String(cell.text):'') + '</span>';
+      });
+      html += '</div></div>';
+    });
+    if (gi.note) html += '<div class="gene-grid-label" style="margin-top:3px">' + escHtml(gi.note) + '</div>';
+    html += '</div>';
+  } else {
+    html += '<div class="gene-best">';
+    if (g) {
+      html += '<div class="gene-seg"><span class="gene-seg-label">中央個体 ★</span><span class="gene-reals">';
+      for (let i = 0; i < g.length; i++) {
+        let t = 0.5;
+        if (ranges && ranges[i]) { const mn = ranges[i][0], mx = ranges[i][1];
+          t = (mx > mn) ? Math.max(0, Math.min(1, (g[i] - mn) / (mx - mn))) : 0.5; }
+        const v = Math.abs(g[i]) >= 100 ? g[i].toFixed(0) : Math.abs(g[i]) >= 10 ? g[i].toFixed(1) : g[i].toFixed(2);
+        html += '<span class="realchip" title="g' + i + (ranges&&ranges[i] ? ' ∈ [' + ranges[i][0] + ', ' + ranges[i][1] + ']' : '') + '">' +
+                v + '<span class="bar" style="width:' + (t*100).toFixed(0) + '%"></span></span>';
+      }
+      html += '</span></div>';
+    } else {
+      html += '<div class="gene-empty">—</div>';
+    }
+    html += '</div>';
+  }
+  box.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════
+// コードエディタ補助（行番号 / 禁止構文 / わかりやすいエラー）— 3アプリ共通
+// ══════════════════════════════════════════════════════════════
+function toggleCode() {
+  const body=document.getElementById('codeBody'), toggle=document.getElementById('codeToggle');
+  const open=body.classList.toggle('open');
+  toggle.textContent=open?'▾ コード':'▸ コード';
+  toggle.classList.toggle('open',open);
+}
+function syncGutter() {
+  const ta=document.getElementById('codeArea'), g=document.getElementById('codeGutter');
+  if(!ta||!g)return;
+  const n=(ta.value.match(/\n/g)||[]).length+1;
+  let s=''; for(let i=1;i<=n;i++) s+=i+'\n';
+  g.textContent=s; g.scrollTop=ta.scrollTop;
+}
+function lintCode(code){
+  const lines=code.split('\n');
+  const rules=[
+    {re:/(^|[^.\w])class\s+[A-Za-z_$]/, msg:'class キーワードは使えません', hint:'オブジェクトリテラル {} やファクトリ関数で代替してください（例: const make = () => ({x:0,y:0}); ）'},
+    {re:/\bdocument\s*\./, msg:'document.* は使えません（DOM 操作は不可）', hint:'描画は drawPhenotype / drawFrame の中で Canvas 2D（ctx）だけを使ってください'},
+    {re:/\bwindow\s*\./, msg:'window.* は使えません', hint:'グローバルなブラウザ API には触れられません。genome と params だけで完結させてください'},
+    {re:/\.addEventListener\s*\(/, msg:'addEventListener は使えません', hint:'入力は PARAM_DEFS のスライダーで受け取ってください'},
+    {re:/\bfetch\s*\(/, msg:'fetch（外部通信）は使えません', hint:'外部データは読み込めません'},
+    {re:/\bXMLHttpRequest\b/, msg:'XMLHttpRequest（外部通信）は使えません', hint:'外部通信はできません'},
+    {re:/\bset(Timeout|Interval)\s*\(/, msg:'setTimeout / setInterval は使えません', hint:'アニメーションは stepState(state, dt, ...) が毎フレーム呼ばれることで進みます'},
+    {re:/^\s*import\s/, msg:'import 文は使えません', hint:'外部ライブラリは読み込めません（純粋な JS + Canvas のみ）'},
+    {re:/^\s*export\s/, msg:'export 文は使えません', hint:'モジュール構文は使えません'},
+  ];
+  for(let i=0;i<lines.length;i++){
+    const stripped=lines[i].replace(/\/\/.*$/,'').replace(/(["'`])(?:\\.|(?!\1).)*\1/g,'""');
+    for(const r of rules){ if(r.re.test(stripped)) return {msg:r.msg, line:i+1, hint:r.hint}; }
+  }
+  return null;
+}
+function errorLine(e){
+  const m=(e.stack||'').match(/<anonymous>:(\d+):\d+/) || (e.stack||'').match(/Function:(\d+):\d+/);
+  if(m){ const n=parseInt(m[1]); return n>1? n-1 : n; }
+  if(typeof e.lineNumber==='number') return e.lineNumber;
+  return null;
+}
+function friendlyHint(msg){
+  if(/is not defined/.test(msg)) return '変数名のスペルミス、または定義する前に使っている可能性があります';
+  if(/Unexpected token|Unexpected end|missing/.test(msg)) return '括弧 () {} [] の対応や、カンマ・セミコロンの抜けを確認してください';
+  if(/is not a function/.test(msg)) return '関数でないものを () で呼び出しています。変数の中身を確認してください';
+  if(/Cannot read|reading/.test(msg)) return 'undefined のプロパティを参照しています。genome の長さや GENE_RANGES を確認してください';
+  return '';
+}
+function showCodeError(msg, line, code, hint){
+  const el=document.getElementById('errorBox');
+  let html='⚠ '+escHtml(msg)+(line?'（'+line+' 行目あたり）':'');
+  if(line && code){
+    const ln=code.split('\n')[line-1];
+    if(ln!==undefined) html+='<span class="errline">'+line+' | '+escHtml(ln.trim().slice(0,120))+'</span>';
+  }
+  if(hint) html+='<span class="errhint">💡 '+escHtml(hint)+'</span>';
+  el.innerHTML=html; el.className='error-box show';
+  const body=document.getElementById('codeBody');
+  if(!body.classList.contains('open')) toggleCode();
+}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ── help overlay ──
+function openHelp(){document.getElementById('helpOverlay').classList.add('show');}
+function closeHelp(){document.getElementById('helpOverlay').classList.remove('show');}
+
+// ── model file save / load ──
+let modelTitle='';
+function setModelTitle(t){
+  modelTitle = (t!=null && (''+t).trim()) ? (''+t).trim() : '';
+  const base='IEC Studio v1.0';
+  document.title = modelTitle ? (modelTitle+' — '+base) : base;
+}
+
+// ══════════════════════════════════════════════════════════════
+// Population recording: composite the 9 cells onto one canvas and record that
+// ══════════════════════════════════════════════════════════════
+let gridMR=null, gridChunks=[], gridRecording=false, gridRecCv=null, gridRecRaf=null;
+const GRID_REC_GAP = 7;                      // matches the gap in .iec-grid
+function gridRecSize(){
+  let w=cellPx*3+GRID_REC_GAP*2, h=w;
+  if(w%2){ w++; h++; }                       // H.264 encoders expect even dimensions
+  return {w,h};
+}
+function gridRecDraw(){
+  const {w,h}=gridRecSize();
+  const ctx=gridRecCv.getContext('2d');
+  ctx.fillStyle='#0b1020'; ctx.fillRect(0,0,w,h);
+  for(let i=0;i<9;i++){
+    const src=document.getElementById('canvas'+i); if(!src) continue;
+    const x=(i%3)*(cellPx+GRID_REC_GAP), y=Math.floor(i/3)*(cellPx+GRID_REC_GAP);
+    try{ ctx.drawImage(src, x, y, cellPx, cellPx); }catch(e){}
+  }
+  ctx.fillStyle='rgba(11,16,32,.72)'; ctx.fillRect(6,6,74,20);
+  ctx.fillStyle='#f0e8d0'; ctx.font='bold 12px IBM Plex Mono,monospace';
+  ctx.textBaseline='middle'; ctx.textAlign='left';
+  ctx.fillText('世代 '+generation, 12, 17);
+  gridRecRaf=requestAnimationFrame(gridRecDraw);
+}
+function toggleGridRecording(){ gridRecording ? stopGridRecording() : startGridRecording(); }
+function startGridRecording(){
+  const {w,h}=gridRecSize();
+  gridRecCv=document.createElement('canvas'); gridRecCv.width=w; gridRecCv.height=h;
+  if(!gridRecCv.captureStream){ showToast('この環境では録画できません', true); return; }
+  const pref=(document.getElementById('recFmtSel')||{}).value||'auto';
+  // Ask for H.264 (avc1) explicitly. 'codecs=h264' is not a recognised string, and a bare
+  // 'video/mp4' makes Chrome write VP9 into an MP4, which QuickTime and PowerPoint cannot play.
+  const AVC=['video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1.4D401E','video/mp4;codecs=avc1'];
+  let types;
+  if(pref==='mp4')       types=AVC.concat(['video/webm;codecs=vp9','video/webm']);
+  else if(pref==='webm') types=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+  else                   types=AVC.concat(['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']);
+  const mt=types.find(t=>{try{return MediaRecorder.isTypeSupported(t);}catch(_){return false;}})||'';
+  if(pref==='mp4' && !(mt||'').includes('mp4')) showToast('この環境は H.264 録画に未対応のため WebM で保存します', true);
+  gridRecDraw();
+  let stream;
+  try{ stream=gridRecCv.captureStream(30); }
+  catch(e){ showToast('録画を開始できませんでした', true); cancelAnimationFrame(gridRecRaf); gridRecRaf=null; return; }
+  try{ gridMR=new MediaRecorder(stream, mt?{mimeType:mt}:{}); }
+  catch(e){ showToast('録画を開始できませんでした: '+e.message, true); cancelAnimationFrame(gridRecRaf); gridRecRaf=null; return; }
+  gridChunks=[];
+  gridMR.ondataavailable=e=>{ if(e.data.size>0) gridChunks.push(e.data); };
+  gridMR.onstop=()=>{
+    if(gridRecRaf!==null){ cancelAnimationFrame(gridRecRaf); gridRecRaf=null; }
+    const blob=new Blob(gridChunks,{type:gridMR.mimeType||'video/webm'});
+    const ext=(gridMR.mimeType||'').includes('mp4')?'mp4':'webm';
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=modelSlug('iec')+'_population.'+ext;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    gridRecording=false; updateGridRecUI(); showToast('動画を保存しました ('+ext+')');
+  };
+  gridMR.start(200);
+  gridRecording=true; updateGridRecUI();
+  showToast('9個体の録画を開始しました。終了するには「停止」を押してください');
+}
+function stopGridRecording(){ if(gridMR && gridMR.state!=='inactive') gridMR.stop(); }
+function updateGridRecUI(){
+  const b=document.getElementById('gridRecBtn'); if(!b) return;
+  b.textContent = gridRecording ? '⏹ 停止' : '⏺ 録画';
+  b.classList.toggle('recording', gridRecording);
+}
+
+function modelSlug(fallback){
+  const t=(modelTitle||'').trim();
+  if(!t) return fallback;
+  const s=t.replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,'_').replace(/_+/g,'_').slice(0,60).replace(/^_+|_+$/g,'');
+  return s || fallback;
+}
+
+// ── データ一式を ZIP でダウンロード（CSV + JSON。外部ライブラリ非依存の store 方式）──
+function crc32(bytes){
+  let c,crc=0xFFFFFFFF;
+  if(!crc32.tab){crc32.tab=[];for(let n=0;n<256;n++){c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);crc32.tab[n]=c>>>0;}}
+  for(let i=0;i<bytes.length;i++)crc=(crc>>>8)^crc32.tab[(crc^bytes[i])&0xFF];
+  return (crc^0xFFFFFFFF)>>>0;
+}
+function makeZipBlob(files){
+  const enc=new TextEncoder();
+  const u16=v=>[v&0xFF,(v>>>8)&0xFF];
+  const u32=v=>[v&0xFF,(v>>>8)&0xFF,(v>>>16)&0xFF,(v>>>24)&0xFF];
+  const local=[],central=[];let offset=0;
+  files.forEach(f=>{
+    const name=enc.encode(f.name);
+    const data=(typeof f.data==='string')?enc.encode(f.data):f.data;
+    const crc=crc32(data);
+    const lh=[].concat(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0));
+    local.push(new Uint8Array(lh),name,data);
+    const ch=[].concat(u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset));
+    central.push(new Uint8Array(ch),name);
+    offset+=lh.length+name.length+data.length;
+  });
+  let cenSize=0;central.forEach(c=>cenSize+=c.length);
+  const eocd=[].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cenSize),u32(offset),u16(0));
+  return new Blob([...local,...central,new Uint8Array(eocd)],{type:'application/zip'});
+}
+function triggerBlobDownload(blob,filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function genomeCSV(rows, extraCols){
+  // rows: [{prefix:[...], genome:[...]}], extraCols: ['step','gen'] 等の見出し
+  let maxLen=0; rows.forEach(r=>{ if(r.genome && r.genome.length>maxLen) maxLen=r.genome.length; });
+  const head=[...extraCols]; for(let i=0;i<maxLen;i++) head.push('g'+i);
+  const lines=[head.join(',')];
+  rows.forEach(r=>{
+    const cells=[...r.prefix];
+    for(let i=0;i<maxLen;i++){ const v=r.genome?r.genome[i]:undefined; cells.push(v===undefined?'':v); }
+    lines.push(cells.join(','));
+  });
+  return lines.join('\r\n');
+}
+function downloadDataZip(){
+  if(!defs){showToast('先にモデルを適用してください',true);return;}
+  if((!population||!population.length) && (!lineage||!lineage.length)){showToast('データがありません（初期化して少し選んでから）',true);return;}
+  const nowISO=new Date().toISOString();
+  const stamp=nowISO.slice(0,19).replace('T','_').replace(/:/g,'');
+  const root='iec_'+modelSlug('model')+'_'+stamp;
+  const code=(document.getElementById('codeArea')||{}).value||'';
+  const params=getParams();
+  const ranges=(defs.GENE_RANGES&&Array.isArray(defs.GENE_RANGES))?defs.GENE_RANGES:null;
+  const geneLen=(population&&population[0])?population[0].length:(lineage&&lineage.length?lineage[lineage.length-1].genome.length:0);
+  const cxEl=document.getElementById('cxType');
+  const settings={
+    params,
+    mode: (mode==='crossover')?'crossover (2 parents)':'mutation (1 parent)',
+    crossoverType: (mode==='crossover'&&cxEl)?cxEl.value:null,
+    geneRanges: ranges,
+    seed: __runSeed>>>0
+  };
+  const files=[];
+  const meta={
+    app:'IEC Studio', version:'1.0',
+    model:modelTitle||null,
+    exportedAt:nowISO,
+    generation,
+    populationSize: population?population.length:0,
+    geneLength: geneLen,
+    settings,
+    lineageLength: lineage?lineage.length:0,
+    frameRecording:{
+      enabled: frameRec.lines.length>0,
+      interval: 1,
+      frameCount: frameRec.lines.length,
+      truncated: frameRec.truncated,
+      schema:'JSON Lines（1行1フレーム）。各行 = {"tick": <世代番号>, "state": {"population": [9個体の遺伝子配列], "chosen": <その世代で選んだ番号 or null>}}。model.js の drawPhenotype(ctx, genome, W, H) で各個体を描き直せば各世代を再生できる。'
+    },
+    files:['metadata.json','model.js','frames.jsonl','lineage.csv','population.csv','data.json'],
+    note:'settings = 実験設定（パラメータ・選択モード・交叉方式・乱数シード seed 等）。frames.jsonl = 各世代の全9個体の遺伝子（初期化以降）。同梱ビュワーで各世代を再生できる（方式B）。seed により変異/交叉の乱数が固定される（方式A）。model.js = この実験を生成したモデルのコード。lineage.csv = 各世代で選んだ親（中央個体）の履歴。population.csv = 現在の9個体。is_center=1 が中央（★）個体。'
+  };
+  files.push({name:root+'/metadata.json', data:JSON.stringify(meta,null,2)});
+  files.push({name:root+'/model.js', data:code});
+  if(frameRec.lines.length){ files.push({name:root+'/frames.jsonl', data:frameRec.lines.join('\n')}); }
+  // lineage.csv
+  const lineRows=(lineage||[]).map((e,i)=>({prefix:[i,e.gen], genome:e.genome}));
+  files.push({name:root+'/lineage.csv', data:'﻿'+genomeCSV(lineRows,['step','gen'])});
+  // population.csv
+  const popRows=(population||[]).map((g,i)=>({prefix:[i, i===4?1:0], genome:g}));
+  files.push({name:root+'/population.csv', data:'﻿'+genomeCSV(popRows,['index','is_center'])});
+  // data.json
+  const data={
+    meta:{app:'IEC Studio', version:'1.0', model:modelTitle||null, exportedAt:nowISO},
+    settings,
+    generation, params, geneRanges:ranges,
+    lineage:(lineage||[]).map(e=>({gen:e.gen, genome:e.genome})),
+    lineageBranches:(lineageArchive||[]).map(br=>br.map(e=>({gen:e.gen, genome:e.genome}))),
+    population:(population||[]).map(g=>[...g])
+  };
+  files.push({name:root+'/data.json', data:JSON.stringify(data,null,2)});
+  triggerBlobDownload(makeZipBlob(files), root+'.zip');
+  showToast('データ一式を ZIP で保存しました（'+files.length+' ファイル）');
+}
+function saveModelFile(){
+  const code=document.getElementById('codeArea').value;
+  const blob=new Blob([code],{type:'text/javascript'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=modelSlug('iec_model')+'.js';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  showToast('モデルを .js ファイルに保存しました');
+}
+
+// ══════════════════════════════════════════════════════════════
+// HTML出力：今のモデルだけを動かせる独立HTMLを書き出す
+// ══════════════════════════════════════════════════════════════
+// 実装方針：いま開いている画面（document）をまるごと複製し、
+//   1) コード編集／AI生成のUI（.code-bar・#aiOverlay）を非表示にする
+//   2) 開いていたダイアログは閉じた状態に戻す
+//   3) 起動時に「今のモデルコード」を codeArea へ確実にセットし直す
+//      小さな追加スクリプトを末尾に足す（DOMContentLoaded は登録順に
+//      発火するため、既定モデルで一度初期化された直後に上書きされる）
+// ことで、コード編集エリアや new Function() 評価の仕組みには一切
+// 手を加えず、既存のエンジンをそのまま安全に再利用する。
+function exportStandaloneHTML(){
+  if(!defs){ showToast('モデルが読み込まれていません', true); return; }
+  const code=(document.getElementById('codeArea').value||'').trim();
+  if(!code){ showToast('コードが空です', true); return; }
+  try{
+    const clone=document.documentElement.cloneNode(true);
+
+    // コード編集・AI生成UIは非表示に（要素自体は残すのでエンジンは無傷で動く）
+    const codeBar=clone.querySelector('.code-bar');
+    if(codeBar) codeBar.style.display='none';
+
+    // ヘルプ内の「コードの書き方」節は編集UIが無いスタンドアロン版には不要
+    const helpCode=clone.querySelector('#helpCodeSection');
+    if(helpCode) helpCode.remove();
+
+    // 開いたままのダイアログ／全画面表示は閉じた状態にリセット
+    clone.querySelectorAll('.overlay.show, .gridfs-overlay.show')
+      .forEach(el=>el.classList.remove('show'));
+
+    // タイトルバーに「スタンドアロン版」の目印を追加
+    const genBadgeEl=clone.querySelector('#genBadge');
+    if(genBadgeEl){
+      genBadgeEl.textContent='世代: 0';
+      const pkgBadge=document.createElement('div');
+      pkgBadge.className='tick-badge';
+      pkgBadge.style.color='var(--amber)';
+      pkgBadge.style.background='rgba(180,83,9,.08)';
+      pkgBadge.textContent='📦 スタンドアロン版';
+      genBadgeEl.after(pkgBadge);
+    }
+
+    // 起動時に必ず「今のモデルコード」を再セットする小さなスクリプトを追記
+    // （元の init は既定モデルで一度初期化するが、DOMContentLoaded は
+    //   登録順に実行されるため、この追記分が直後に正しいモデルへ上書きする）
+    const reinit=document.createElement('script');
+    reinit.textContent =
+      'window.addEventListener("DOMContentLoaded", function(){\n' +
+      '  var ta = document.getElementById("codeArea");\n' +
+      '  if (ta) { ta.value = ' + JSON.stringify(code) + '; }\n' +
+      '  if (typeof applyCode === "function") applyCode(true);\n' +
+      '});\n';
+    (clone.querySelector('body')||clone).appendChild(reinit);
+
+    const html='<!DOCTYPE html>\n'+clone.outerHTML;
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=modelSlug('iec_model')+'_standalone.html';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+    showToast('スタンドアロンHTMLを書き出しました（このモデルだけを実行できます）');
+  }catch(e){
+    showToast('書き出しに失敗しました: '+e.message, true);
+  }
+}
+
+function loadModelFile(ev){
+  const f=ev.target.files&&ev.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{document.getElementById('codeArea').value=r.result; syncGutter(); applyCode(); showToast('モデルを読み込みました（'+f.name+'）');};
+  r.onerror=()=>showToast('ファイルの読み込みに失敗しました',true);
+  r.readAsText(f); ev.target.value='';
+}
+
+// ── LLM プロンプト（ABM / EVO Studio と同じ作法）──
+const SPEC_MIN = `【IEC Studio 最小仕様（厳守）】
+■ 実行環境：new Function() で評価。class / document.* / window.* / addEventListener / import / export / fetch / XMLHttpRequest / setTimeout / setInterval は使用不可（純粋 JS + Canvas2D のみ）。
+■ 必須関数：createInitialGenome() / mutateGenome(genome, params) / drawPhenotype(ctx, genome, W, H)。drawPhenotype 先頭で背景塗りか ctx.clearRect(0,0,W,H)（W=H=150）。
+■ アニメ時：const ANIMATED = true を追加し、drawPhenotype の代わりに initState(genome,W,H) / stepState(state,dt,genome,W,H) / drawFrame(ctx,state,genome,W,H) を定義。
+■ params を受け取るのは mutateGenome のみ（他の関数は受け取らない）。
+■ 任意定義：GENE_RANGES=[[最小,最大], ...]，PARAM_DEFS=[{ id, label, min, max, step, default, help? }]，色分けは geneGrid(genome)→{ cols, legend, grids, note }。音で選ぶなら playSound(genome)。`;
+function buildModPrompt(instruction){
+  const code=document.getElementById('codeArea').value;
+  const wish = (instruction && instruction.trim()) ? instruction.trim() : '・\n・';
+  const text=
+`以下の IEC Studio（対話型進化計算）用 JavaScript コードを改変してください．
+
+【出力ルール（厳守）】
+- 回答は日本語で書くこと（コード中のコメントも日本語で）。
+- 出力は \`\`\`javascript で始まり \`\`\` で終わる コードブロックを1つだけ。前後に説明文・挨拶を書かない。
+- コードは省略せず全文を出力（「// 以下同様」等で省かない）。
+- 必須関数の名前と引数は変えない。
+
+【現在のコード】
+\`\`\`javascript
+${code}
+\`\`\`
+
+【最小仕様（厳守）】
+${SPEC_MIN}
+
+【改変の進め方】
+- PARAM_DEFS には help:'説明' を付けると親切。
+- 先頭付近に const TITLE = '短い題材名（全角10文字程度・改変後の内容を表す）' を定義／更新する。
+- DESCRIPTION（{ summary, gene, phenotype, selection }）を定義／更新する（画面の「このモデルの説明」に表示）。
+- 末尾に「何をどう変えたか」を3〜5行の解説コメント（// ...）として付ける。
+
+【改変したい内容】（箇条書きで具体的に。このテキストを添付ファイルとして渡した場合は、この欄を書き換える代わりに、チャットのメッセージ本文に改変したい内容を書いてください。その場合はメッセージ本文の指示をこの欄より優先してください。）
+${wish}
+
+※ 出力はコードブロック1つだけ・全文・前後に文章なし。`;
+  return text;
+}
+function copyExplainPrompt(){
+  const code=document.getElementById('codeArea').value;
+  const fence='```';
+  const text=
+`以下は IEC Studio（対話型進化計算）で現在実行している JavaScript コードです。
+このコードが構築しているモデルを、コードに忠実に、丁寧に説明してください（コードに無い機能を推測で足さないこと）。
+
+【出力フォーマット】
+- 説明はすべて日本語で書くこと。
+1. 概要：何を進化させ、人がどう選ぶ題材かを2〜4文で。その際、どの遺伝子が絵の何を決め、
+   選んだ個体から次の9個体がどう作られるのかという世代更新の要点も含め、題材だけでなく
+   仕組みが伝わるように。
+2. アルゴリズムの説明：createInitialGenome / mutateGenome / drawPhenotype
+   （アニメ時は initState / stepState / drawFrame）が何をしているか、遺伝子と表現型の対応、
+   選び方（選択）、主要パラメータ（PARAM_DEFS）の役割を、コードに即して言葉で。
+3. 疑似コード：これだけを読んで同じ表現型が得られる厳密さで書くこと。流れの概略で済ませず、
+   次を明示すること。
+   - 遺伝子の各要素が何を意味し、値域（GENE_RANGES）はどれだけで、連続値か離散値か
+   - drawPhenotype が遺伝子から絵をどう作るか。描く順序と、遺伝子の値を位置・大きさ・角度・
+     色へ対応づける式
+   - 変異がどの要素を、どれだけ、どの確率で変えるか。値域からはみ出た場合にどう戻すか
+     （切り詰めるか、巻き戻すか）
+   - 選んだ個体から次の世代をどう作るか（2親モードでは交叉が2つの遺伝子をどう混ぜるか）
+   - 乱数がどこで入り、何を決めるか
+   - アニメーションのモデルでは、stepState の1ステップで何が進むか
+   コードが実行する順に、番号付きの手順として書くこと。
+
+【現在のコード】
+${fence}javascript
+${code}
+${fence}`;
+  copyToClipboard(text, '説明プロンプトをコピーしました');
+}
+function copyModPrompt(){
+  copyToClipboard(buildModPrompt(), '改変プロンプトをコピーしました');
+}
+function buildNewPrompt(instruction){
+  const want = (instruction && instruction.trim()) ? instruction.trim() : '（ここを書き換えてください：例 "花の形を進化させる" "万華鏡模様" "歩く生き物（アニメーション）"）';
+  const text=`あなたは IEC Studio（対話型進化計算）用の JavaScript コードを書くエキスパートです。以下の最小仕様に厳密に従い，指定された題材を実装してください。
+
+【出力ルール（厳守）】
+- 回答は日本語で書くこと（コード中のコメントも日本語で）。
+- 出力は \`\`\`javascript で始まり \`\`\` で終わる コードブロックを1つだけ。前後に説明文・挨拶を書かない。
+- コードは省略せず全文を出力（「// 以下同様」等で省かない）。
+
+【最小仕様（厳守）】
+${SPEC_MIN}
+
+【その他】
+- 先頭付近に const TITLE = '短い題材名（全角10文字程度）' を定義する。
+- DESCRIPTION = { summary, gene, phenotype, selection } を定義する（画面の「このモデルの説明」に表示）。
+- 末尾に「遺伝子の構成・表現型・主要パラメータ」を3〜5行の解説コメント（// ...）として付ける。
+- 音は Sound.beep(Hz,秒,音量,波形,遅延秒) / Sound.note(MIDI,秒,音量,波形,遅延秒)。音で選ぶなら playSound(genome) を定義（各候補に『▶ 鳴らす』）。
+
+【実装する題材】（このテキストを添付ファイルとして渡した場合は、この欄を書き換える代わりに、チャットのメッセージ本文に作りたい題材を書いてください。その場合はメッセージ本文の指示をこの欄より優先してください。）
+${want}
+
+【追加要件・変更点】（任意。同様に、添付ファイルとして渡した場合はメッセージ本文に書いても構いません）
+・（任意：遺伝子の数や意味，パラメータ，静止／アニメーションなど）
+
+※ 出力はコードブロック1つだけ・全文・前後に文章なし。`;
+  return text;
+}
+function copyNewModelPrompt(){
+  copyToClipboard(buildNewPrompt(), '新規作成プロンプトをコピーしました（生成AI に貼り付けてください）');
+}
+
+// ══════════════════════════════════════════════════════════════
+// Spec copy
+// ══════════════════════════════════════════════════════════════
+function copySpec() {
+  const full='【回答は日本語で。コード中のコメントも日本語で。】\n\n'+SPEC_TEXT+'\n\n■ 現在のコード（参考）\n\n'+
+    document.getElementById('codeArea').value;
+  copyToClipboard(full, '仕様書をクリップボードにコピーしました');
+}
+
+// ── 文字サイズ調整（既定は標準より1ポイント大きい 13pt）──
+let fontPt = 15;
+function applyFontScale(){
+  document.documentElement.style.fontSize = fontPt + 'pt';
+  const el = document.getElementById('fsVal'); if(el) el.textContent = fontPt + 'pt';
+}
+function adjustFont(d){ fontPt = Math.max(9, Math.min(20, fontPt + d)); applyFontScale(); }
+applyFontScale();
+
+// ── サウンド：全 Studio 共通の安全な音声 API（モデルからは Sound.* だけを呼ぶ）──
+const Sound = (function(){
+  let ctx=null, master=null, enabled=true, vol=0.5;
+  let voices=0; const MAXVOICES=24; let lastReset=0, perFrame=0;
+  function ensure(){
+    if(ctx) return ctx;
+    try{
+      const AC = (typeof window!=='undefined') ? (window.AudioContext||window.webkitAudioContext) : null;
+      if(!AC) return null;
+      ctx = new AC();
+      master = ctx.createGain(); master.gain.value = vol; master.connect(ctx.destination);
+    }catch(e){ ctx=null; }
+    return ctx;
+  }
+  function resume(){ const c=ensure(); if(c && c.state==='suspended'){ try{c.resume();}catch(_){} } }
+  function clampType(t){ return (t==='square'||t==='triangle'||t==='sawtooth'||t==='sine')?t:'sine'; }
+  function tone(freq,dur,v,type,when){
+    if(!enabled) return;
+    const c=ensure(); if(!c) return;
+    const now=c.currentTime;
+    if(now-lastReset>0.016){ lastReset=now; perFrame=0; }   // フレームあたりの発音数を制限
+    if(perFrame>=16) return; perFrame++;
+    if(voices>=MAXVOICES) return;                            // 同時発音数を制限
+    freq=Math.max(20,Math.min(8000,freq||440));
+    dur=Math.max(0.01,Math.min(4,dur||0.15));
+    v=Math.max(0,Math.min(1,(v==null?0.5:v)));
+    when=Math.max(0,Math.min(8,when||0));
+    const t0=now+when;
+    let osc,g;
+    try{ osc=c.createOscillator(); g=c.createGain(); }catch(_){ return; }
+    osc.type=clampType(type); osc.frequency.value=freq;
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.linearRampToValueAtTime(v,t0+0.006);
+    g.gain.exponentialRampToValueAtTime(0.0008,t0+dur);
+    osc.connect(g); g.connect(master); voices++;
+    osc.onended=()=>{ voices=Math.max(0,voices-1); try{g.disconnect();osc.disconnect();}catch(_){}; };
+    try{ osc.start(t0); osc.stop(t0+dur+0.02); }catch(_){ voices=Math.max(0,voices-1); }
+  }
+  return {
+    beep(freq,dur,v,type,when){ tone(freq,dur,v,type,when); },
+    note(midi,dur,v,type,when){ const f=440*Math.pow(2,((midi==null?69:midi)-69)/12); tone(f,dur,v,type,when); },
+    setEnabled(b){ enabled=!!b; if(enabled) resume(); },
+    isEnabled(){ return enabled; },
+    setVolume(x){ vol=Math.max(0,Math.min(1,x)); if(master) master.gain.value=vol; },
+    getVolume(){ return vol; },
+    resume
+  };
+})();
+if (typeof globalThis !== 'undefined') globalThis.Sound = Sound;
+function toggleSound(){
+  const on=!Sound.isEnabled(); Sound.setEnabled(on);
+  const b=document.getElementById('soundBtn'); if(b){ b.textContent=on?'🔊':'🔇'; b.title=on?'音：オン（クリックで消音）':'音：オフ（クリックで音を出す）'; }
+  if(on) Sound.resume();
+}
+if (typeof document !== 'undefined') document.addEventListener('pointerdown', ()=>Sound.resume());
+</script>
+
+<!-- ============ AI 生成（OpenAI 互換 API / LM Studio 等） ============ -->
+<div class="overlay" id="aiOverlay" onclick="if(event.target===this)closeAI()">
+  <div class="overlay-card" style="max-width:760px;width:92%">
+    <header>
+      <h2>🤖 AI 生成 — OpenAI 互換 API（LM Studio 等）</h2>
+      <span class="close-x" onclick="closeAI()">✕ 閉じる</span>
+    </header>
+    <div class="ovbody">
+      <div class="ai-grid">
+        <label>エンドポイント (Base URL)
+          <span class="ai-model-row">
+            <input id="aiBaseUrl" type="text" placeholder="http://localhost:1234">
+            <button class="cbtn" type="button" onclick="aiResetUrl()" title="localhost に戻す">🏠</button>
+          </span>
+        </label>
+        <label>API キー（LM Studio は空でOK）
+          <input id="aiApiKey" type="password" placeholder="lm-studio / sk-...">
+        </label>
+        <label style="grid-column:1 / -1">モデル
+          <span class="ai-model-row">
+            <input id="aiModel" type="text" list="aiModelList" placeholder="例: qwen2.5-coder-7b-instruct">
+            <datalist id="aiModelList"></datalist>
+            <button class="cbtn" type="button" onclick="aiFetchModels()">🔄 一覧取得</button>
+          </span>
+        </label>
+        <label>温度 (temperature)
+          <input id="aiTemp" type="number" min="0" max="2" step="0.1" value="0.7" style="width:90px">
+        </label>
+        <label class="ai-inline"><input id="aiStream" type="checkbox" checked> ストリーミング表示</label>
+        <div style="grid-column:1 / -1;font-size:.64rem;color:var(--muted);line-height:1.6">例）LM Studio: <code>http://localhost:1234</code>（キー不要）／ OpenRouter: <code>https://openrouter.ai/api/v1</code> ／ DeepInfra: <code>https://api.deepinfra.com/v1/openai</code> ／ OpenAI: <code>https://api.openai.com/v1</code> 。クラウドは API キー必須。</div>
+      </div>
+
+      <div class="ai-mode">
+        <label><input type="radio" name="aiMode" value="mod" checked> ✏️ 既存コードを改変</label>
+        <label><input type="radio" name="aiMode" value="new"> ✨ 新規作成</label>
+      </div>
+
+      <label class="ai-instr-label">指示（やりたいこと・作りたい題材を記入）
+        <textarea id="aiInstruction" rows="4" placeholder="例：花の形を進化させる題材にして、花びらの枚数も遺伝子に含めてください"></textarea>
+      </label>
+
+      <div class="ai-actions">
+        <button class="cbtn primary" id="aiRunBtn" onclick="aiRun()">▶ 送信</button>
+        <button class="cbtn" id="aiStopBtn" onclick="aiStop()" disabled>⏹ 停止</button>
+        <span id="aiStatus" class="ai-status"></span>
+      </div>
+
+      <div id="aiOutWrap" style="display:none">
+        <div class="ai-out-head">
+          <span>AI 応答</span>
+          <button class="cbtn" type="button" onclick="aiInsertLast()">⬇ コード欄へ挿入</button>
+        </div>
+        <pre id="aiOut" class="ai-out"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+#aiOverlay .ai-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin-bottom:10px}
+#aiOverlay label{font-family:'Noto Sans JP',sans-serif;font-size:.72rem;color:var(--text);display:flex;flex-direction:column;gap:3px}
+#aiOverlay input[type=text],#aiOverlay input[type=password],#aiOverlay input[type=number],#aiOverlay textarea{
+  font-family:'IBM Plex Mono',monospace;font-size:.72rem;padding:5px 7px;border:1px solid var(--border);
+  border-radius:4px;background:var(--panel);color:var(--text)}
+#aiOverlay textarea{resize:vertical;width:100%}
+#aiOverlay .ai-inline{flex-direction:row;align-items:center;gap:6px}
+#aiOverlay .ai-model-row{display:flex;gap:6px;align-items:center}
+#aiOverlay .ai-model-row input{flex:1}
+#aiOverlay .ai-mode{display:flex;gap:18px;margin:6px 0 10px}
+#aiOverlay .ai-mode label{flex-direction:row;align-items:center;gap:6px}
+#aiOverlay .ai-instr-label{margin-bottom:10px}
+#aiOverlay .ai-actions{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+#aiOverlay .ai-status{font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--muted)}
+#aiOverlay .ai-out-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-family:'IBM Plex Mono',monospace;font-size:.7rem;color:var(--accent)}
+#aiOverlay .ai-out{max-height:300px;overflow:auto;background:var(--code-bg);border:1px solid var(--border);
+  border-radius:6px;padding:10px;font-family:'IBM Plex Mono',monospace;font-size:.68rem;white-space:pre-wrap;color:var(--text)}
+</style>
+
+<script>
+(function(){
+  const LS_KEY='alife_ai_settings';
+  let aiCtrl=null, aiLastText='';
+  const $=id=>document.getElementById(id);
+
+  window.openAI=function(){
+    const s=loadSettings();
+    $('aiBaseUrl').value=s.baseUrl; $('aiApiKey').value=s.apiKey;
+    $('aiModel').value=s.model; $('aiTemp').value=s.temp; $('aiStream').checked=s.stream;
+    const hasCode=($('codeArea').value||'').trim().length>0;
+    const r=document.querySelector('input[name=aiMode][value="'+(hasCode?'mod':'new')+'"]'); if(r) r.checked=true;
+    status('');
+    $('aiOverlay').classList.add('show');
+  };
+  window.closeAI=function(){ $('aiOverlay').classList.remove('show'); };
+  window.aiResetUrl=function(){ $('aiBaseUrl').value='http://localhost:1234'; saveSettings(); status('URL を localhost に戻しました'); };
+
+  function loadSettings(){
+    let s={};
+    try{ s=JSON.parse(localStorage.getItem(LS_KEY)||'{}'); }catch(e){}
+    return {
+      baseUrl: s.baseUrl||'http://localhost:1234',
+      apiKey:  s.apiKey||'',
+      model:   s.model||'',
+      temp:    (s.temp!=null?s.temp:0.7),
+      stream:  (s.stream!=null?s.stream:true)
+    };
+  }
+  function saveSettings(){
+    const s={ baseUrl:$('aiBaseUrl').value.trim(), apiKey:$('aiApiKey').value,
+      model:$('aiModel').value.trim(), temp:parseFloat($('aiTemp').value)||0.7, stream:$('aiStream').checked };
+    try{ localStorage.setItem(LS_KEY, JSON.stringify(s)); }catch(e){}
+    return s;
+  }
+  // OpenAI互換のベースURL。パスがあればそのまま使う（OpenRouter: .../api/v1、DeepInfra: .../v1/openai、OpenAI: .../v1）。
+  // ホスト名だけ（例 http://localhost:1234）のときは /v1 を補う（LM Studio 等）。
+  function baseUrl(){
+    let u=($('aiBaseUrl').value.trim()||'http://localhost:1234').replace(/\/+$/,'');
+    const m=u.match(/^https?:\/\/[^\/]+(\/.*)?$/);
+    if(!(m && m[1])) u=u+'/v1';   // パスが無ければ /v1 を補う
+    return u;
+  }
+  function authHeaders(){
+    const h={'Content-Type':'application/json'};
+    const k=$('aiApiKey').value.trim(); if(k) h['Authorization']='Bearer '+k;
+    return h;
+  }
+  function status(msg,bad){ const el=$('aiStatus'); el.textContent=msg||''; el.style.color=bad?'var(--bad)':'var(--muted)'; }
+
+  window.aiFetchModels=async function(){
+    saveSettings();
+    status('モデル一覧を取得中…');
+    const base=baseUrl();
+    // OpenAI互換 /v1/models と LM Studio ネイティブ /api/v1/models を両方試す
+    const cands=[ base+'/models' ];
+    if(/\/v1$/.test(base)) cands.push(base.replace(/\/v1$/,'/api/v1')+'/models'); // LM Studio ネイティブも一応試す
+    let lastErr=null, rawDump='';
+    for(const url of cands){
+      try{
+        const r=await fetch(url,{headers:authHeaders()});
+        if(!r.ok){ lastErr=new Error('HTTP '+r.status); continue; }
+        const txt=await r.text(); rawDump=txt;
+        let j; try{ j=JSON.parse(txt); }catch(_){ lastErr=new Error('JSON解析失敗'); continue; }
+        const arr=j.data||j.models||(j.object&&j.object.data)||(Array.isArray(j)?j:[]);
+        const ids=(Array.isArray(arr)?arr:[]).map(m=>(typeof m==='string'?m:(m&&(m.id||m.key||m.modelKey||m.name||m.identifier||m.path)))).filter(Boolean);
+        if(!ids.length){ lastErr=new Error('モデルが空'); continue; }
+        const dl=$('aiModelList'); dl.innerHTML='';
+        ids.forEach(id=>{ const o=document.createElement('option'); o.value=id; dl.appendChild(o); });
+        if(!$('aiModel').value) $('aiModel').value=ids[0];
+        status(ids.length+' 件のモデルを取得しました');
+        return;
+      }catch(e){ lastErr=e; }
+    }
+    if(rawDump){ $('aiOut').textContent='[モデル一覧の生レスポンス（解析できなかった内容）]\n'+rawDump.slice(0,4000); $('aiOutWrap').style.display='block'; }
+    status('一覧の解析に失敗: '+(lastErr&&lastErr.message)+' — モデル名を手入力すれば送信できます（例 google/gemma-4-31b-qat）。生レスポンスを下に表示しました。', true);
+  };
+
+  window.aiStop=function(){ if(aiCtrl){ aiCtrl.abort(); aiCtrl=null; } };
+
+  function appendOut(c){ const el=$('aiOut'); el.textContent+=c; el.scrollTop=el.scrollHeight; }
+
+  function extractCode(text){
+    if(!text) return '';
+    const re=/```(?:javascript|js)?\s*\n([\s\S]*?)```/gi;
+    let m, last=null;
+    while((m=re.exec(text))!==null){ last=m[1]; }
+    if(last!=null) return last.replace(/\s+$/,'');
+    return text.trim();
+  }
+  window.aiInsertLast=function(auto){
+    const code=extractCode(aiLastText);
+    if(!code){ status('コードを抽出できませんでした', true); return; }
+    const ta=$('codeArea'); ta.value=code;
+    if(typeof window.syncGutter==='function') syncGutter();
+    if(typeof window.showToast==='function') showToast('AIの生成コードをコード欄に入れました。▶ 適用で実行してください');
+    if(!auto) status('コード欄へ挿入しました');
+  };
+
+  window.aiRun=async function(){
+    saveSettings();
+    const mode=document.querySelector('input[name=aiMode]:checked').value;
+    const instruction=$('aiInstruction').value;
+    if(mode==='mod' && !($('codeArea').value||'').trim()){
+      status('コード欄が空です。新規作成を選んでください。', true); return;
+    }
+    if(typeof window.buildModPrompt!=='function' || typeof window.buildNewPrompt!=='function'){
+      status('プロンプト生成関数が見つかりません', true); return;
+    }
+    const prompt=(mode==='mod') ? window.buildModPrompt(instruction) : window.buildNewPrompt(instruction);
+    const model=$('aiModel').value.trim();
+    if(!model){ status('モデル名を入力してください（🔄一覧取得で選べます）', true); return; }
+
+    aiLastText='';
+    $('aiOut').textContent=''; $('aiOutWrap').style.display='block';
+    $('aiRunBtn').disabled=true; $('aiStopBtn').disabled=false;
+    status('生成中…');
+    const useStream=$('aiStream').checked;
+    aiCtrl=new AbortController();
+    const body={ model, temperature:parseFloat($('aiTemp').value)||0.7, stream:useStream,
+      messages:[
+        {role:'system', content:'あなたは指定された Studio 用の JavaScript コードを書く専門家です。指示と仕様に厳密に従い、必ず ```javascript ... ``` のコードブロックを1つ含めて回答してください。'},
+        {role:'user', content:prompt}
+      ]};
+    try{
+      const r=await fetch(baseUrl()+'/chat/completions',{method:'POST',headers:authHeaders(),body:JSON.stringify(body),signal:aiCtrl.signal});
+      if(!r.ok){ const t=await r.text().catch(()=>''); throw new Error('HTTP '+r.status+' '+t.slice(0,200)); }
+      if(useStream && r.body){
+        const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+        while(true){
+          const {done,value}=await reader.read(); if(done) break;
+          buf+=dec.decode(value,{stream:true});
+          let nl;
+          while((nl=buf.indexOf('\n'))>=0){
+            const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1);
+            if(!line.startsWith('data:')) continue;
+            const data=line.slice(5).trim();
+            if(data==='[DONE]') continue;
+            try{ const j=JSON.parse(data); const d=(j.choices&&j.choices[0]&&j.choices[0].delta)||{}; const c=d.content||''; if(c){ aiLastText+=c; appendOut(c); } }catch(e){}
+          }
+        }
+      }else{
+        const j=await r.json();
+        aiLastText=(j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content)||'';
+        $('aiOut').textContent=aiLastText;
+      }
+      aiInsertLast(true);
+      status('完了。コードをコード欄へ挿入しました（▶ 適用で実行）。');
+    }catch(e){
+      if(e.name==='AbortError'){ status('停止しました'); }
+      else{ status('エラー: '+e.message+'（サーバ起動・CORS・URLを確認）', true); }
+    }finally{
+      aiCtrl=null; $('aiRunBtn').disabled=false; $('aiStopBtn').disabled=true;
+    }
+  };
+})();
+</script>
+<!-- ═══ 改造：フィード（縦スクロール）で視聴時間を測るモード（ハンズオン用）═══════
+  インスタのリールのように 1個体ずつ全画面で見せ、スクロール／スワイプ／スペースで次へ。
+  各個体が画面に出ていた時間を測り、1世代 FEED_N 個を見終わったら一番長く見た個体を親にする
+  （2親モードは上位2個体）。見ていた時間は世代が終わってからだけ表示する。
+═════════════════════════════════════════════════════════════════════ -->
+<style>
+#feedOverlay{position:fixed;inset:0;z-index:300;background:#000;display:none;flex-direction:column;
+  align-items:center;justify-content:center;gap:12px;color:#ddd;font-family:'IBM Plex Mono',monospace;user-select:none}
+#feedOverlay.show{display:flex}
+#feedCanvas{width:min(80vh,94vw);height:min(80vh,94vw);border-radius:14px;background:#0b0b12;transition:transform .25s,opacity .25s}
+#feedCanvas.slide{transform:translateY(-40px);opacity:0}
+#feedBar{display:flex;gap:10px;align-items:center;font-size:.8rem}
+#feedBar button{font:inherit;padding:6px 14px;border-radius:20px;border:1px solid #555;background:#111;color:#eee;cursor:pointer}
+#feedBar button:hover{border-color:#aaa}
+#feedInfo{position:absolute;top:14px;left:18px;font-size:.8rem;color:#aaa}
+#feedDots{display:flex;gap:6px}
+#feedDots span{width:8px;height:8px;border-radius:50%;background:#444}
+#feedDots span.on{background:#eee}
+</style>
+<div id="feedOverlay">
+  <div id="feedInfo"></div>
+  <canvas id="feedCanvas" width="720" height="720"></canvas>
+  <div id="feedDots"></div>
+  <div id="feedBar">
+    <button id="feedPause">⏸ 一時停止</button>
+    <button id="feedNext">次へ ↓</button>
+    <button id="feedClose">✕ 終了</button>
+  </div>
+  <div style="font-size:.7rem;color:#777">スクロール・スワイプ・スペースキーで次へ</div>
+</div>
+<script>
+(function(){
+  const FEED_N = 4;                       // 1世代に流す個体数
+  const POOL = [4, 0, 1, 2];              // population から使う番号（4 = 前世代の親そのもの）
+  const ov = document.getElementById('feedOverlay'), cv = document.getElementById('feedCanvas');
+  const ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  const info = document.getElementById('feedInfo'), dots = document.getElementById('feedDots');
+  const pbtn = document.getElementById('feedPause');
+  let open = false, paused = false, busy = false;
+  let order = [], pos = 0, times = {}, shownAt = 0, st = null, raf = null, lastTs = null, lastMove = 0;
+
+  function shuffle(a){ a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+
+  function addTime(){ if (!paused && shownAt) times[order[pos]] += (performance.now() - shownAt) / 1000; shownAt = performance.now(); }
+
+  function show(){
+    const i = order[pos];
+    info.textContent = '世代 ' + generation + '　' + (pos + 1) + ' / ' + FEED_N;
+    dots.innerHTML = order.map((_, k) => '<span class="' + (k === pos ? 'on' : '') + '"></span>').join('');
+    ctx.clearRect(0, 0, W, H);
+    try {
+      if (isAnimated && defs.initState) { st = defs.initState([...population[i]], W, H); defs.drawFrame(ctx, st, population[i], W, H); }
+      else { st = null; defs.drawPhenotype(ctx, population[i], W, H); }
+    } catch (e) { st = null; }
+    shownAt = performance.now();
+  }
+
+  function loop(ts){
+    if (!open) { raf = null; return; }
+    if (st && !paused && lastTs !== null) {
+      const dt = Math.min((ts - lastTs) / 1000, 0.05);
+      try { defs.stepState(st, dt, population[order[pos]], W, H); defs.drawFrame(ctx, st, population[order[pos]], W, H); } catch (e) {}
+    }
+    lastTs = ts;
+    raf = requestAnimationFrame(loop);
+  }
+
+  function startGen(){
+    order = shuffle(POOL).slice(0, FEED_N); pos = 0; times = {};
+    order.forEach(i => times[i] = 0);
+    busy = false; show();
+  }
+
+  function next(){
+    if (!open || busy || paused) return;
+    const now = performance.now();
+    if (now - lastMove < 350) return;     // トラックパッドの連続スクロールを1回にまとめる
+    lastMove = now;
+    addTime();
+    if (pos < FEED_N - 1) {
+      cv.classList.add('slide');
+      setTimeout(() => { pos++; show(); cv.classList.remove('slide'); }, 180);
+      return;
+    }
+    // 1世代分見終わった → 一番長く見た個体を親にする
+    busy = true; shownAt = 0;
+    const rank = [...order].sort((a, b) => times[b] - times[a]);
+    const need = mode === 'mutation' ? 1 : 2;
+    const msg = order.map(i => (rank.slice(0, need).includes(i) ? '★' : '') + times[i].toFixed(1) + '秒').join(' / ');
+    parentAIdx = parentBIdx = null;
+    rank.slice(0, need).forEach(i => onSelect(i));
+    showToast('見ていた時間（表示順）：' + msg);
+    info.textContent = '見ていた時間：' + msg;
+    setTimeout(startGen, 1500);  // 結果を少し見せてから次世代へ（2親は onSelect 内で 340ms 後に生成される）
+  }
+
+  function openFeed(){
+    if (!defs) return;
+    open = true; paused = false; pbtn.textContent = '⏸ 一時停止';
+    ov.classList.add('show'); startGen();
+    lastTs = null; if (!raf) raf = requestAnimationFrame(loop);
+  }
+  function closeFeed(){ open = false; ov.classList.remove('show'); }
+
+  pbtn.addEventListener('click', () => {
+    if (!paused) addTime();               // 止めるまでの時間は記録してから止める
+    paused = !paused;
+    pbtn.textContent = paused ? '▶ 再開' : '⏸ 一時停止';
+    shownAt = performance.now();
+  });
+  document.getElementById('feedNext').addEventListener('click', next);
+  document.getElementById('feedClose').addEventListener('click', closeFeed);
+  ov.addEventListener('wheel', e => { e.preventDefault(); if (e.deltaY > 15) next(); }, { passive: false });
+  let ty = null;
+  ov.addEventListener('touchstart', e => { ty = e.touches[0].clientY; }, { passive: true });
+  ov.addEventListener('touchend', e => { if (ty !== null && ty - e.changedTouches[0].clientY > 50) next(); ty = null; });
+  document.addEventListener('keydown', e => {
+    if (!open) return;
+    if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); next(); }
+    if (e.key === 'Escape') closeFeed();
+  });
+  // タブを離れている間は数えない
+  document.addEventListener('visibilitychange', () => { if (open && !paused && document.hidden) pbtn.click(); });
+
+  const row = document.createElement('div');
+  row.className = 'mode-row';
+  row.innerHTML = '<button class="mode-btn" id="btnFeed">📱 フィードで見る（' + FEED_N + '個ずつ・視聴時間で選ぶ）</button>';
+  document.querySelector('.mode-row').after(row);
+  document.getElementById('btnFeed').addEventListener('click', openFeed);
+})();
+</script>
+
+<!-- ═══ 改造：共有ギャラリー用（遺伝子のコピー／URL からの読み込み）═══════
+  「📋 遺伝子をコピー」：中央（★＝最後に選んだ親）の遺伝子をカンマ区切りの1行でコピーする。
+  URL の #g=数,数,... ：その遺伝子を中央の親にして始める（ギャラリーの「IEC Studio で試す」用）。
+═════════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  function genomeText(){ return population[4].map(v => +v.toFixed(4)).join(','); }
+
+  function copyGenome(){
+    if (!population[4]) return;
+    const txt = genomeText(), btn = document.getElementById('btnCopyGene');
+    const done = () => { btn.textContent = '✅ コピーしました（フォームに貼り付け）'; setTimeout(() => btn.textContent = LABEL, 2500); };
+    // file:// で開いたときなどクリップボードが使えない場合は、選択できる形で表示する
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(done, () => prompt('この1行をコピーしてフォームに貼り付けてください', txt));
+  }
+
+  function loadFromHash(){
+    const m = location.hash.match(/g=([^&]+)/);
+    if (!m || !defs) return;
+    const g = decodeURIComponent(m[1]).split(',').map(Number);
+    if (g.length !== defs.createInitialGenome().length || g.some(isNaN)) { alert('URL の遺伝子の数が合いません（' + g.length + '個）'); return; }
+    stopAnimations();
+    const params = getParams();
+    population = Array.from({ length: 9 }, (_, j) => j === 4 ? [...g] : defs.mutateGenome(g, params));
+    clearMarks(); render();
+    const c4 = document.getElementById('cell4'); if (c4) c4.classList.add('show-star');
+    updateHint();
+  }
+
+  const LABEL = '📋 遺伝子をコピー（中央★の個体）';
+  const row = document.createElement('div');
+  row.className = 'mode-row';
+  row.innerHTML = '<button class="mode-btn" id="btnCopyGene">' + LABEL + '</button>';
+  document.getElementById('btnFeed').closest('.mode-row').after(row);
+  document.getElementById('btnCopyGene').addEventListener('click', copyGenome);
+  // 元の DOMContentLoaded（既定モデルで初期化）より後に登録されるので、その後に上書きできる
+  window.addEventListener('DOMContentLoaded', loadFromHash);
+})();
+</script>
+
+</body>
+</html>
