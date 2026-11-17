@@ -12,7 +12,8 @@
     padding:12px 20px; background:#fff; border-bottom:1px solid var(--line); }
   h1 { margin:0; font-size:1.25rem; }
   #sub { color:var(--muted); font-size:.85rem; }
-  #pause { margin-left:auto; font:inherit; font-size:.85rem; padding:6px 14px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
+  #add, #pause { font:inherit; font-size:.85rem; padding:6px 14px; border:1px solid var(--line); border-radius:8px; background:#fff; cursor:pointer; }
+  #add { margin-left:auto; }
   main { max-width:1400px; margin:0 auto; padding:20px 16px; display:grid; gap:20px; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
   .pair { display:grid; grid-template-columns:1fr 1fr; gap:2px; background:#222; }
@@ -20,12 +21,17 @@
   .panel canvas { display:block; width:100%; aspect-ratio:1; background:#0b0b12; }
   .tag { position:absolute; top:6px; left:6px; padding:2px 8px; border-radius:4px; font-size:.75rem; color:#fff; background:rgba(0,0,0,.6); }
   .body { padding:14px 16px 16px; }
-  .name { margin:0; font-size:1.1rem; font-weight:700; }
-  .memo { margin:4px 0 12px; color:var(--muted); font-size:.9rem; min-height:1.2em; }
+  .body input, .body textarea, .genes input { width:100%; font:inherit; color:inherit; background:transparent; border:1px dashed transparent; border-radius:6px; padding:3px 6px; margin:0; }
+  .body input:hover, .body textarea:hover, .genes input:hover { border-color:var(--line); }
+  .body input:focus, .body textarea:focus, .genes input:focus { border-color:var(--accent); outline:none; background:#fff; }
+  .name { font-size:1.1rem; font-weight:700; }
+  .memo { margin:4px 0 12px; color:var(--muted); font-size:.9rem; }
+  .genes { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px 16px 0; }
+  .genes input { font-size:.75rem; border-color:var(--line); }
+  .genes input.bad { border-color:#d33; }
   .btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .btns a { display:block; padding:8px 4px; border-radius:6px; background:var(--accent); color:#fff; text-align:center; text-decoration:none; font-size:.85rem; }
-  .free { margin:10px 0 0; font-size:.85rem; white-space:pre-wrap; }
-  .free:empty { display:none; }
+  .free { margin:10px 0 0; font-size:.85rem; resize:vertical; }
   #msg { grid-column:1/-1; color:var(--muted); text-align:center; padding:40px 0; }
 </style>
 </head>
@@ -33,6 +39,7 @@
 <header>
   <h1>ハンズオン１共有サイト</h1>
   <span id="sub">読み込み中…</span>
+  <button id="add">＋ カード追加</button>
   <button id="pause">⏸ サムネイル停止</button>
 </header>
 <main id="grid"><p id="msg">読み込み中…</p></main>
@@ -93,43 +100,64 @@
   function makePanel(label, genome) {
     const div = document.createElement('div'); div.className = 'panel';
     const cv = document.createElement('canvas'); cv.width = cv.height = 320;
-    const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = label;
+    const tag = document.createElement('span'); tag.className = 'tag';
     div.append(cv, tag);
-    if (genome) {
-      const p = { canvas: cv, ctx: cv.getContext('2d'), genome, state: initState(genome, 320, 320), visible: false };
-      cv._p = p; panels.push(p); io.observe(cv);
-      drawFrame(p.ctx, p.state, genome, 320, 320);
-    } else tag.textContent += '（未入力）';
-    return div;
+    const p = { canvas: cv, ctx: cv.getContext('2d'), genome: null, state: null, visible: false };
+    cv._p = p; panels.push(p); io.observe(cv);
+    const set = g => {
+      p.genome = g; tag.textContent = label + (g ? '' : '（未入力）');
+      if (g) { p.state = initState(g, 320, 320); drawFrame(p.ctx, p.state, g, 320, 320); }
+      else { p.ctx.fillStyle = '#0b0b12'; p.ctx.fillRect(0, 0, 320, 320); }
+    };
+    set(genome);
+    return { el: div, set };
   }
 
-  function studioLink(text, genome) {
-    const a = document.createElement('a');
-    a.textContent = text;
-    if (genome) { a.href = 'studio.html#g=' + genome.join(','); a.target = '_blank'; }
-    else { a.style.opacity = .4; a.style.pointerEvents = 'none'; }
-    return a;
+  function studioLink(genome) {
+    const a = document.createElement('a'); a.textContent = '▶ 試す';
+    const set = g => {
+      if (g) { a.href = 'studio.html#g=' + g.join(','); a.target = '_blank'; a.style.opacity = a.style.pointerEvents = ''; }
+      else { a.removeAttribute('href'); a.style.opacity = .4; a.style.pointerEvents = 'none'; }
+    };
+    set(genome);
+    return { el: a, set };
   }
+
+  const field = (tagName, cls, value, ph) => {
+    const el = document.createElement(tagName); el.className = cls; el.value = value || ''; el.placeholder = ph;
+    return el;
+  };
 
   function makeCard(e) {
     const card = document.createElement('article'); card.className = 'card';
     const pair = document.createElement('div'); pair.className = 'pair';
-    pair.append(makePanel('好み', e.like), makePanel('視聴時間', e.watch));
+    const pl = makePanel('好み', e.like), pw = makePanel('視聴時間', e.watch);
+    pair.append(pl.el, pw.el);
+    // 遺伝子欄：貼り付け／編集すると、その場でサムネイルと「試す」リンクが更新される
+    const genes = document.createElement('div'); genes.className = 'genes';
+    const bind = (value, panel, link) => {
+      const inp = field('input', '', value, '遺伝子を貼り付け');
+      inp.addEventListener('input', () => {
+        const g = parseGenome(inp.value);
+        panel.set(g); link.set(g); inp.classList.toggle('bad', !!inp.value.trim() && !g);
+      });
+      return inp;
+    };
+    const ll = studioLink(e.like), lw = studioLink(e.watch);
+    genes.append(bind(e.like && e.like.join(','), pl, ll), bind(e.watch && e.watch.join(','), pw, lw));
     const body = document.createElement('div'); body.className = 'body';
-    const name = document.createElement('p'); name.className = 'name'; name.textContent = e.name;
-    const memo = document.createElement('p'); memo.className = 'memo'; memo.textContent = e.memo;
     const btns = document.createElement('div'); btns.className = 'btns';
-    btns.append(studioLink('▶ 試す', e.like), studioLink('▶ 試す', e.watch));
-    const free = document.createElement('p'); free.className = 'free'; free.textContent = e.free;
-    body.append(name, memo, btns, free);
-    card.append(pair, body);
+    btns.append(ll.el, lw.el);
+    const free = field('textarea', 'free', e.free, '自由記述'); free.rows = 3;
+    body.append(field('input', 'name', e.name, '名前'), field('input', 'memo', e.memo, 'ひとこと'), btns, free);
+    card.append(pair, genes, body);
     return card;
   }
 
   function loop(ts) {
     const dt = last === null ? 0 : Math.min(0.05, (ts - last) / 1000); last = ts;
     if (!paused) for (const p of panels) {
-      if (!p.visible) continue;
+      if (!p.visible || !p.genome) continue;
       try { stepState(p.state, dt, p.genome, 320, 320); drawFrame(p.ctx, p.state, p.genome, 320, 320); } catch (err) {}
     }
     requestAnimationFrame(loop);
@@ -155,6 +183,10 @@
     }
   }
 
+  document.getElementById('add').addEventListener('click', () => {
+    const m = document.getElementById('msg'); if (m) m.remove();
+    grid.prepend(makeCard({ name: '', memo: '', free: '', like: null, watch: null }));
+  });
   document.getElementById('pause').addEventListener('click', ev => {
     paused = !paused;
     ev.target.textContent = paused ? '▶ サムネイル再生' : '⏸ サムネイル停止';
