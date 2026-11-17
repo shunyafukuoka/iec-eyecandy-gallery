@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>目が離せない映像ギャラリー</title>
+<title>ハンズオン１共有サイト</title>
 <style>
   :root { --bg:#f4f6f9; --card:#fff; --text:#1d2433; --muted:#6b7385; --line:#dde2ea; --accent:#1f6fd1; }
   * { box-sizing:border-box; }
@@ -24,12 +24,14 @@
   .memo { margin:4px 0 12px; color:var(--muted); font-size:.9rem; min-height:1.2em; }
   .btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .btns a { display:block; padding:8px 4px; border-radius:6px; background:var(--accent); color:#fff; text-align:center; text-decoration:none; font-size:.85rem; }
+  .free { margin:10px 0 0; font-size:.85rem; white-space:pre-wrap; }
+  .free:empty { display:none; }
   #msg { grid-column:1/-1; color:var(--muted); text-align:center; padding:40px 0; }
 </style>
 </head>
 <body>
 <header>
-  <h1>目が離せない映像ギャラリー</h1>
+  <h1>ハンズオン１共有サイト</h1>
   <span id="sub">読み込み中…</span>
   <button id="pause">⏸ サムネイル停止</button>
 </header>
@@ -69,13 +71,15 @@
     const head = rows[0] || [];
     const col = f => head.findIndex(f);
     const iName = col(h => h.includes('名前'));
-    const iLike = col(h => h.includes('好き') && !h.includes('つい'));
-    const iWatch = col(h => h.includes('つい'));
-    const iMemo = col(h => /ひとこと|メモ|コメント/.test(h));
+    const iLike = col(h => /好き|好み/.test(h) && !/つい|視聴時間/.test(h));
+    const iWatch = col(h => /つい|視聴時間/.test(h));
+    const iMemo = col(h => /ひとこと|メモ|コメント/.test(h) && !h.includes('自由記述'));
+    const iFree = col(h => h.includes('自由記述'));
     return rows.slice(1).map((r, n) => ({
       key: r.join('|'),
       name: (r[iName] || '').trim() || '名無し' + (n + 1),
       memo: iMemo >= 0 ? (r[iMemo] || '').trim() : '',
+      free: iFree >= 0 ? (r[iFree] || '').trim() : '',
       like: parseGenome(r[iLike]),
       watch: parseGenome(r[iWatch]),
     })).filter(e => e.like || e.watch).reverse();   // 新しい投稿を先頭に
@@ -110,13 +114,14 @@
   function makeCard(e) {
     const card = document.createElement('article'); card.className = 'card';
     const pair = document.createElement('div'); pair.className = 'pair';
-    pair.append(makePanel('好き', e.like), makePanel('つい見てしまう', e.watch));
+    pair.append(makePanel('好み', e.like), makePanel('視聴時間', e.watch));
     const body = document.createElement('div'); body.className = 'body';
     const name = document.createElement('p'); name.className = 'name'; name.textContent = e.name;
     const memo = document.createElement('p'); memo.className = 'memo'; memo.textContent = e.memo;
     const btns = document.createElement('div'); btns.className = 'btns';
-    btns.append(studioLink('▶ 好きを試す', e.like), studioLink('▶ つい見てしまうを試す', e.watch));
-    body.append(name, memo, btns);
+    btns.append(studioLink('▶ 試す', e.like), studioLink('▶ 試す', e.watch));
+    const free = document.createElement('p'); free.className = 'free'; free.textContent = e.free;
+    body.append(name, memo, btns, free);
     card.append(pair, body);
     return card;
   }
@@ -144,7 +149,7 @@
       const msg = document.getElementById('msg');
       if (msg) msg.textContent = entries.length ? '' : 'まだ投稿がありません';
       if (msg && entries.length) msg.remove();
-      sub.textContent = (SHEET_CSV_URL ? '' : '【サンプル表示】') + shown.size + ' 人分　／　' + RELOAD_SEC + '秒ごとに自動で更新　／　「▶ 試す」でその遺伝子から IEC Studio で育て直せます';
+      sub.textContent = (SHEET_CSV_URL ? '' : '【サンプル表示】') + shown.size + ' 人分　／　' + RELOAD_SEC + '秒ごとに自動で更新　／　「▶ 試す」でその遺伝子から IEC Studio で試すことができます';
     } catch (err) {
       sub.textContent = '読み込みに失敗しました（' + err.message + '）。' + RELOAD_SEC + '秒後にもう一度試します';
     }
